@@ -1,0 +1,32 @@
+---
+title: "STA6106 Statistic Computing Project2"
+author: "Robert Norberg, Jung-Han Wang"
+date: "Wednesday, October 22, 2014"
+output: pdf_document
+---
+
+##Problem1
+The function g is given by 
+
+$$ g(x,y) = 4xy + (x + y^2)^2 $$
+
+
+The goal is to find the minimum of g.
+
+* a. Minimize g using Newton's method
+
+* b. Minimize g using the steepest descent method. Use (1,0) as starting point.
+
+
+```{r}
+
+```
+
+##Problem2
+In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather (31$^\circ$F or 0$^\circ $C) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the dataset challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, (1$\le$i$\le$  24).
+
+
+```{r, echo=FALSE}
+
+```
+
