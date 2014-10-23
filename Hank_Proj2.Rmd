@@ -5,7 +5,16 @@ date: "Wednesday, October 22, 2014"
 output: pdf_document
 ---
 
-##Problem1
+```{r ChunkSettings, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+# Clear working environment
+rm(list=ls())
+
+# Options for document compilation
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, comment=NA, fig.width=4, fig.height=3)
+```
+
+## Problem1
+
 The function g is given by 
 
 $$ g(x,y) = 4xy + (x + y^2)^2 $$
@@ -13,20 +22,53 @@ $$ g(x,y) = 4xy + (x + y^2)^2 $$
 
 The goal is to find the minimum of g.
 
-* a. Minimize g using Newton's method
+### a. Minimize g using Newton's method
 
-* b. Minimize g using the steepest descent method. Use (1,0) as starting point.
+### b. Minimize g using the steepest descent method. Use (1,0) as starting point.
 
 
 ```{r}
 
 ```
 
-##Problem2
-In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather (31$^\circ$F or 0$^\circ $C) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the dataset challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, (1$\le$i$\le$  24).
+## Problem2
 
+In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather ($31^\circ F$ or $0^\circ C$) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the dataset challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, (1$\le$i$\le$  24).
+
+### a) The goal is to obtain MLEs for $\beta_0$ and $\beta_1$ in the following logistic regression model
+
+$$log \left( \dfrac{p}{1-p} \right) = \beta_0+\beta_1x$$
+
+where $p$ is the probability that at least one O-ring is damaged and $x$
+is the temperature. Create computer programs using Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
 
 ```{r, echo=FALSE}
 
 ```
+
+### b) Solve the same problem using the "Iterative Reweighted Least Squares" algorithm and the Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
+
+
+### c) We are also interested in predicting O-ring failure. Challenger was launched at $31^\circ F$. What is the predicted probability of O-ring damage at $31^\circ F$ ? How many O-ring failures should be expected at $31^\circ F$ ? What can you conclude?
+
+
+## Problem 3
+
+The elastic net (Zou and Hastie, 2006) is considered to be a compromise between the ridge and lasso penalties. The elastic net can be formulated using the Lagrangian as follows:
+
+$$\widehat{\beta}^{enet} = \underset{\beta}{\mathrm{argmin}}\sum\limits_{i=1}^{n}(y_i-x'_1 \beta)^2 + \lambda_1 \sum\limits_{j=1}^{p} |\beta_j| + \lambda_2 \sum\limits_{j=1}^{p}\beta_j^2$$
+
+where $\lambda_1 \ge 0$ and $\lambda_2 \ge 0$.
+The "credit" data set is discussed in the textbook of James et al., p83. We willfit the elastic net model to the "credit" data set using only the quantitative predictors. Our challenge is to select the appropriate $\lambda_1$ and $\lambda_2$ before fitting the final model.
+
+### a) Write a function in R using the cross-validation approach to find the optimum values of $\lambda_1$ and $\lambda_2$
+
+### b) Repeat the same question as in (a) but using now the *one-standard-error* (1–SE) rule cross validation
+
+## Appendix with R code
+
+```{r all-code, ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE, tidy.opts=list(keep.blank.line=T)}
+```
+
+-----
 
