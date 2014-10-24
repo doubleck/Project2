@@ -35,6 +35,13 @@ The goal is to find the minimum of g.
 
 In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather ($31^\circ F$ or $0^\circ C$) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the dataset challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, (1$\le$i$\le$  24).
 
+```{r}
+# load challenger data
+library(mcsm)
+data(challenger)
+```
+
+
 ### a) The goal is to obtain MLEs for $\beta_0$ and $\beta_1$ in the following logistic regression model
 
 $$log \left( \dfrac{p}{1-p} \right) = \beta_0+\beta_1x$$
@@ -42,9 +49,97 @@ $$log \left( \dfrac{p}{1-p} \right) = \beta_0+\beta_1x$$
 where $p$ is the probability that at least one O-ring is damaged and $x$
 is the temperature. Create computer programs using Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
 
-```{r, echo=FALSE}
+The log-likelihood is given by
 
+$$l(\beta) = \pmb{y}^T \pmb{Z \beta}-\pmb{b}^T \pmb{1}$$
+
+where $\pmb{1}$ is a column vector of ones, $\pmb{y} = (y_1...y_n)^T$, $\pmb{b} = (b(\theta_1)...b(\theta_n))^T$, and $\pmb{Z}$ is the $n\, X\, 2$ matrix whose $i$ th row is $\pmb{z}_i^T$.
+
+The score function is 
+
+$$\pmb{l}'(\pmb{\beta})=\pmb{Z}^T(\pmb{y}-\pmb{\pi})$$
+
+where $\pmb{\pi}$ is a column vector of the Bernoulli probabilities $\pi_1, ..., \pi_n$. The Hessian is given by 
+
+$$\pmb{l}''(\pmb{\beta}) = \dfrac{d}{d \pmb{\beta}}(\pmb{Z}^T(\pmb{y}-\pmb{\pi})) = -\left( \dfrac{d \pmb{\pi}}{d \pmb{\beta}} \right)^T \pmb{Z} = -\pmb{Z}^T\pmb{WZ}$$
+
+where $\pmb{W}$ is a diagonal matrix with $i$ th diagonal entry equal to $\pi_i(1-\pi_i)$.
+
+Newton's update is therefore 
+
+$$\pmb{\beta}^{(t+1)} = \pmb{\beta}^{(t)}-\pmb{l}''(\pmb{\beta}^{(t)})^{-1}\pmb{l}'(\pmb{\beta}^{(t)}) = \pmb{\beta}^{(t)}+\left( \pmb{Z}^T\pmb{W}^{(t)}\pmb{Z}\right)^{-1}\left(\pmb{Z}^T(\pmb{y}-\pmb{\pi}^{(t)})\right)$$
+
+where $\pmb{\pi}^{(t)}$ is the value of $\pmb{\pi}$ corresponding to $\pmb{\beta}^{(t)}$, and $\pmb{W}^{(t)}$ is the diagonal weight matrix evaluated at $\pmb{\pi}^{(t)}$.
+
+To find MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$ we designate the vector $\pmb{y}$ to be the response vector in the data and $\pmb{Z}$ to be the $n\, X\, 2$ matrix of ones and temperatures.
+```{r}
+y <- challenger$oring
+x <- challenger$temp
+Z <- cbind(rep(1, nrow(challenger)), challenger$temp)
 ```
+
+$\pmb{Z}$ will remain unchanged, but for each iteration we will need to compute the predicted probabilities $\pi_1, ...\pi_n$ using the current values of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will also need to compute for each iteration $\pmb{W}$, the diagonal matrix with diagonal entry $i$ equal to $\pi_i(1-\pi_1)$. Below, we define a function to do each of these computations.
+```{r}
+find_pis <- function(beta, x){
+  # beta a vector of parameter estimates, x a vector of independent variable observations
+  pis <- exp(beta%*%t(Z))/(1+exp(beta%*%t(Z)))
+  return(pis)
+}
+
+find_W <- function(pis){
+  W <- diag(c(pis*(1-pis)))
+  return(W)
+}
+```
+
+Next we difine a function to calculate Newton's update using $\pmb{Z}$, $\pmb{y}$, $\pmb{\beta}$, and the $\pi s$ and $\pmb{W}$ calculated using the functions above.
+```{r}
+find_update <- function(beta, Z, W, y, pis){
+  numerator <- t(Z)%*%(y-t(pis))
+  denominator <- t(Z)%*%W%*%Z
+  update <- solve(denominator)%*%numerator
+  return(beta+c(update))
+}
+```
+
+Finally, we must define a stopping criterion so that the algorithm ceases to update at some point and returns to us values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will stop updating our estimates when an iteration takes place that does not change them. We are not concerned with accuracy at more than seven decimal places, but we will write the program so that this may be changed.
+
+We choose startting values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$ to be $[0, 0]$, as is reccomended in the textbook. Then we begin a while loop to update these estimates until convergence occurs.
+```{r}
+beta <- c(0, 0)
+old_beta <- c(NA, NA)
+counter <- 0
+decimal_places_of_precision <- 7
+verbose <- TRUE
+
+while(!identical(beta, old_beta)){
+  pis <- find_pis(beta, x)
+  W <- find_W(pis)
+  # set old beta equal to current beta before updating
+  old_beta <- beta
+  # replace beta with updated estimates
+  beta <- find_update(beta, Z, W, y, pis)
+  # round to the number of decimal places desired
+  beta <- round(beta, decimal_places_of_precision)
+  counter <- counter+1
+  # show us the current value of beta if "verbose" is TRUE
+  if(verbose==T){
+    msg <- paste0('Iteration ', counter, ': Beta = (', beta[1], ', ', beta[2], ')')
+  cat(msg)
+  cat('\n')
+  }
+}
+```
+
+Now that the while loop has terminated, the current values of `beta` should be the MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We check these against the estimates given using the `glm()` function in R.
+```{r}
+# see our estimates
+print(beta)
+# see the glm estimates
+glm(y~x, family=binomial)$coefficients
+```
+
+Our estimates match those produced by the `glm()` function, so we are confident that we have correctly found the MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$.
 
 ### b) Solve the same problem using the "Iterative Reweighted Least Squares" algorithm and the Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
 
