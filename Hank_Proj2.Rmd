@@ -176,7 +176,7 @@ find_update_irls <- function(Z, W, working_response){
 }
 ```
 
-Next we choose $(0, \, 0)$ for the initial values of $\pmb{\beta}$ and begin another while loop, this time updating using the iteratively weighted least squares update. (We are still satisfied with 7 decimal places of accuracy.)
+Next we choose $(0, \, 0)$ for the initial values of $\pmb{\beta}$ and begin another while loop, this time updating using the iteratively reweighted least squares update. (We are still satisfied with 7 decimal places of accuracy.)
 ```{r}
 beta <- c(0, 0)
 old_beta <- c(NA, NA)
@@ -208,6 +208,11 @@ We arrive at the same MLEs as before, in the same number of iterations as before
 
 ### c) We are also interested in predicting O-ring failure. Challenger was launched at $31^\circ F$. What is the predicted probability of O-ring damage at $31^\circ F$ ? How many O-ring failures should be expected at $31^\circ F$ ? What can you conclude?
 
+At $31^\circ F$ we predict the probability of at least one O-ring failure to be 
+
+$$p = \dfrac{e^{\beta_0 + (\beta_1)(31)}}{1+e^{\beta_0 + (\beta_1)(31)}} = \dfrac{e^{15.0429 + (-0.2322)(31)}}{1+e^{15.0429 + (-0.2322)(31)}} = 0.9996$$
+
+This prediction means that we are almost certain that at least one O-ring will fail at $31^\circ F$.
 
 ## Problem 3
 
@@ -216,7 +221,7 @@ The elastic net (Zou and Hastie, 2006) is considered to be a compromise between 
 $$\widehat{\beta}^{enet} = \underset{\beta}{\mathrm{argmin}}\sum\limits_{i=1}^{n}(y_i-x'_1 \beta)^2 + \lambda_1 \sum\limits_{j=1}^{p} |\beta_j| + \lambda_2 \sum\limits_{j=1}^{p}\beta_j^2$$
 
 where $\lambda_1 \ge 0$ and $\lambda_2 \ge 0$.
-The "credit" data set is discussed in the textbook of James et al., p83. We willfit the elastic net model to the "credit" data set using only the quantitative predictors. Our challenge is to select the appropriate $\lambda_1$ and $\lambda_2$ before fitting the final model.
+The "credit" data set is discussed in the textbook of James et al., p83. We will fit the elastic net model to the "credit" data set using only the quantitative predictors. Our challenge is to select the appropriate $\lambda_1$ and $\lambda_2$ before fitting the final model.
 
 ### a) Write a function in R using the cross-validation approach to find the optimum values of $\lambda_1$ and $\lambda_2$
 
