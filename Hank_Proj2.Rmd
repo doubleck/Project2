@@ -143,6 +143,68 @@ Our estimates match those produced by the `glm()` function, so we are confident 
 
 ### b) Solve the same problem using the "Iterative Reweighted Least Squares" algorithm and the Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
 
+If we let 
+
+$$\pmb{e}^{(t)} = \pmb{y}-\pmb{\pi}^{(t)}$$
+
+and
+
+$$\pmb{x}^{(t)} = \pmb{Z\beta}^{(t)} + (\pmb{W}^{(t)})^{-1}\pmb{e}^{(t)}$$
+
+then the Fisher scoring update can be written as 
+
+$$\pmb{\beta}^{(t+1)} = \pmb{\beta}+\left( \pmb{Z}^T\pmb{W}^{(t)}\pmb{Z} \right)^{-1} \pmb{Z}^T\pmb{e}^{(t)}$$
+$$ = \left( \pmb{Z}^T\pmb{W}^{(t)}\pmb{Z}\right)^{-1}\pmb{Z}^T\pmb{W}^{(t)}\pmb{x}^{(t)}$$
+
+where $\pmb{x}^{(t)}$ is the *working response* that gets updated with eac iteration.
+
+If we reuse the functions defined earlier to calculate $\pmb{\pi}$ and $\pmb{W}$, we just need to define a function for calculating $\pmb{x}$ and define a new function for updating using the iteratively reweighted least squares update before we begin to iterate. We define a function for calculating $\pmb{x}$ as follows:
+```{r}
+find_x <- function(y, beta, pis, Z, W){
+  e_t <- y-c(pis)
+  x <- Z%*%beta+solve(W)%*%e_t
+  return(x)
+}
+```
+
+And a new updating function:
+```{r}
+find_update_irls <- function(Z, W, working_response){
+  numerator <- t(Z)%*%W%*%working_response
+  denominator <- t(Z)%*%W%*%Z
+  update <- solve(denominator)%*%numerator
+}
+```
+
+Next we choose $(0, \, 0)$ for the initial values of $\pmb{\beta}$ and begin another while loop, this time updating using the iteratively weighted least squares update. (We are still satisfied with 7 decimal places of accuracy.)
+```{r}
+beta <- c(0, 0)
+old_beta <- c(NA, NA)
+counter <- 0
+decimal_places_of_precision <- 7
+verbose <- TRUE
+
+while(!identical(beta, old_beta)){
+  pis <- find_pis(beta, x)
+  W <- find_W(pis)
+  working_response <- find_x(y, beta, pis, Z, W)
+  # set old beta equal to current beta before updating
+  old_beta <- beta
+  # replace beta with updated estimates
+  beta <- find_update_irls(Z, W, working_response)
+  # round to the number of decimal places desired
+  beta <- round(c(beta), decimal_places_of_precision)
+  counter <- counter+1
+  # show us the current value of beta if "verbose" is TRUE
+  if(verbose==T){
+    msg <- paste0('Iteration ', counter, ': Beta = (', beta[1], ', ', beta[2], ')')
+  cat(msg)
+  cat('\n')
+  }
+}
+```
+
+We arrive at the same MLEs as before, in the same number of iterations as before.
 
 ### c) We are also interested in predicting O-ring failure. Challenger was launched at $31^\circ F$. What is the predicted probability of O-ring damage at $31^\circ F$ ? How many O-ring failures should be expected at $31^\circ F$ ? What can you conclude?
 
