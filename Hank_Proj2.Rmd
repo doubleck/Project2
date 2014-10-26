@@ -2,7 +2,7 @@
 title: "STA6106 Statistic Computing Project2"
 author: "Robert Norberg, Jung-Han Wang"
 date: "Wednesday, October 22, 2014"
-output: word_document
+output: html_document
 ---
 
 ```{r ChunkSettings, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
@@ -24,12 +24,94 @@ The goal is to find the minimum of g.
 
 ### a. Minimize g using Newton's method
 
-### b. Minimize g using the steepest descent method. Use (1,0) as starting point.
+The Newton's Algorithm is: $$\pmb{x(n+1)=x(n)-H(x(n))^{-1}\bigtriangledown f(x(n))}$$
 
+First step we need to verify that $H(x(n))$ is non-singular.
+
+```{r}
+hx<-D(D(expression(4*x*y+(x+y^2)^2), 'x'),'x');hx ## Check H(X(n)) is a non-singular matrix
+```
+
+Setting up stopping condition to be: $$\pmb{\|\bigtriangledown f(x(n))\|} \le \epsilon $$
+
+
+```{r}
+newton <- function(f3, x0, tol = 1e-9, n.max = 100) {
+# Newton's method starting at x0
+# f3 is a function that given x returns the list
+# f(x), f'(x), Hessian f''(x)
+x <- x0  ## Set initial value
+f3.x <- f3(x) ## Set Input Function
+n <- 0 ## Set first turn n<-0
+while ((max(abs(f3.x[[2]])) > tol) & (n < n.max)) { ##Set Convergence Criteria. If f'(x) greater than tol(tolerance) go to n+1.
+x <- x - solve(f3.x[[3]], f3.x[[2]]) ##Calculate f'(x)/f''(x)
+f3.x <- f3(x) 
+n <- n + 1 ##Continue to the next n
+}
+if (n == n.max) { ##If n=maximum value, output "newton failed to converge"
+cat('newton failed to converge\n')
+} else {
+return(x)
+}
+}
+```
+
+Then Calculate first and second derivatives for function $g(x,y) = 4xy + (x + y^2)^2$ Using package (Ryacas).
+
+```{r}
+library(Ryacas);
+k <- function(x) {
+4*x[1]*x[2]+(x[1]+x[2]^2)^2
+}
+##Calculate First Derivative of Function to X  (f1)
+f1<-D(expression(4*x*y+(x+y^2)^2), 'x');f1
+##Calculate Second Derivative of Function to X (f11)
+f11<-D(D(expression(4*x*y+(x+y^2)^2), 'x'),'x');f11
+##Calculate First Derivative of Function to y  (f2)
+f2<-D(expression(4*x*y+(x+y^2)^2), 'y');f2
+##Calculate Second Derivative of Function to X (f22)
+f22<-D(D(expression(4*x*y+(x+y^2)^2), 'y'),'y');f22
+##Calculate Second Derivative of Function to X,y (f12)
+f12<-D(D(expression(4*x*y+(x+y^2)^2), 'x'),'y');f12
+```
+
+Set up original function and first derivative and second derivative.
+
+```{r}
+f3 <- function(x) {
+f <- 4*x[1]*x[2]+(x[1]+x[2]^2)^2
+##Calculate First Derivative of Function to x[1]  (f1)
+f1<-4*x[2]+2*(x[1] + x[2]^2)
+##Calculate Second Derivative of Function to x[1] (f11)
+f11<-2
+##Calculate First Derivative of Function to x[2]  (f2)
+f2<-4 * x[1] + 2 * (2 * x[2] * (x[1] + x[2]^2))
+##Calculate Second Derivative of Function to x[1] (f22)
+f22<-2 * (2 * (x[1] + x[2]^2) + 2 * x[2] * (2 * x[2]))
+##Calculate Second Derivative of Function to x[1],x[2] (f12)
+f12<-4 + 2 * (2 * x[2])
+return(list(f, c(f1, f2), matrix(c(f11, f12, f12, f22), 2, 2)))  ##Return 3 values, f, f'(x), f''(x)
+}
+
+
+for (x0 in 0) {
+for (y0 in 1) {
+cat(c(x0,y0), '-->', newton(f3, c(x0,y0)), '\n')
+}}
+
+```
+
+
+
+
+
+
+### b. Minimize g using the steepest descent method. Use (1,0) as starting point.
 
 ```{r}
 
 ```
+
 
 ## Problem2
 
