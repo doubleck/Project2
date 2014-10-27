@@ -75,7 +75,7 @@ f22<-D(D(expression(4*x*y+(x+y^2)^2), 'y'),'y');f22
 f12<-D(D(expression(4*x*y+(x+y^2)^2), 'x'),'y');f12
 ```
 
-Set up original function and first derivative and second derivative.
+Set up function with return value using $\pmb{f}$(original function), $\pmb{\bigtriangledown f}$(first derivative function) and $\pmb{H(x(n))}$(second derivative function).
 
 ```{r}
 f3 <- function(x) {
@@ -92,19 +92,17 @@ f22<-2 * (2 * (x[1] + x[2]^2) + 2 * x[2] * (2 * x[2]))
 f12<-4 + 2 * (2 * x[2])
 return(list(f, c(f1, f2), matrix(c(f11, f12, f12, f22), 2, 2)))  ##Return 3 values, f, f'(x), f''(x)
 }
+```
 
-
-for (x0 in 0) {
-for (y0 in 1) {
-cat(c(x0,y0), '-->', newton(f3, c(x0,y0)), '\n')
+Run the program with start point (0,0) and try add 0.5 each run.  Left side of the result represents the value of starting point.
+Right side of the result represent the value of the ending point.
+```{r}
+for (x0 in seq(0,1, .5)) {
+for (y0 in seq(0,1, .5)) {
+cat(c(x0,y0), '--(Left=Start Point, Right=Extreme Value)--', newton(f3, c(x0,y0)), '\n')
 }}
 
 ```
-
-
-
-
-
 
 ### b. Minimize g using the steepest descent method. Use (1,0) as starting point.
 
