@@ -203,11 +203,11 @@ a.m <- a.m/2
 g.m <- g(a.m)
 }
 # if a suitable a.m was not found then use 0 for a
-if ((a.m <= tol) & (g.m > g.l)) return(x)
+if ((a.m <= tol) & (g.m >= g.l)) return(x)
 # a.r
 a.r <- 2*a.m
 g.r <- g(a.r)
-while ((g.m > g.r) & (a.r < a.max)) {
+while ((g.m >= g.r) & (a.r < a.max)) {
 a.m <- a.r
 g.m <- g.r
 a.r <- 2*a.m
