@@ -2,12 +2,13 @@
 title: "STA6106 Statistic Computing Project2"
 author: "Robert Norberg, Jung-Han Wang"
 date: "Wednesday, October 22, 2014"
-output: html_document
+output: pdf_document
 ---
 
 ```{r ChunkSettings, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
 # Clear working environment
 rm(list=ls())
+library(glmnet)
 
 # Options for document compilation
 knitr::opts_chunk$set(warning=FALSE, message=FALSE, comment=NA, fig.width=4, fig.height=3)
@@ -107,7 +108,7 @@ cat(c(x0,y0), '--(Left=Start Point, Right=Extreme Value)--', newton(f3, c(x0,y0)
 
 ### b. Minimize g using the steepest descent method. Use (1,0) as starting point.
 
-Define function using Golden-Section method to find $x_l \lt x_m \lt x_r$ such that $f(x_l) \ge f(x_m)  and  f(x_r) \ge f(x_m)$
+Define function using Golden-Section method to find $x_l < x_m < x_r$ such that $f(x_l) \ge f(x_m)  and  f(x_r) \ge f(x_m)$
 
 ```{r}
 gsection = function(ftn, x.l, x.r, x.m, tol = 1e-9) {
@@ -248,11 +249,9 @@ descent(f,gradf,c(1,0) )
 
 ```
 
-
-
 ## Problem2
 
-In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather ($31^\circ F$ or $0^\circ C$) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the dataset challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, (1$\le$i$\le$  24).
+In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather ($31^\circ F$ or $0^\circ C$) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the dataset challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, $(1\le i \le 24)$.
 
 ```{r}
 # load challenger data
@@ -442,7 +441,107 @@ $$\widehat{\beta}^{enet} = \underset{\beta}{\mathrm{argmin}}\sum\limits_{i=1}^{n
 where $\lambda_1 \ge 0$ and $\lambda_2 \ge 0$.
 The "credit" data set is discussed in the textbook of James et al., p83. We will fit the elastic net model to the "credit" data set using only the quantitative predictors. Our challenge is to select the appropriate $\lambda_1$ and $\lambda_2$ before fitting the final model.
 
+```{r, echo=FALSE}
+library(RCurl) # for interacting with web pages
+myfile <- getURL("http://www-bcf.usc.edu/~gareth/ISL/Credit.csv") # grab the content of this page
+credit <- read.csv(textConnection(myfile), header=T) # read the page content as a .csv
+credit$X <- NULL # get rid of row ID column
+# find only the column with a numeric class (or integer)
+num_cols <- names(credit)[sapply(credit, class)%in%c('numeric', 'integer')]
+# now subset the data set to only take the numeric columns
+credit <- credit[, num_cols]
+```
+
 ### a) Write a function in R using the cross-validation approach to find the optimum values of $\lambda_1$ and $\lambda_2$
+
+We opt to use ten fold cross-validation, but we will write the code so that it may be generalized for k-fold cross validation. 
+
+The first task for our ten fold cross-validation is to divide the data into ten folds. We borrow some code from last assignment to accomplish this.
+```{r}
+k <- 10 # for 10-fold cross-validation
+n <- nrow(credit) # sample size
+seg_size <- floor(n/k) # approx size of each segment
+leftovers <- n%%k # n mod k
+seg_assignments <- rep(1:k, each=seg_size) # create segment assignments
+if(leftovers > 0){
+  seg_assignments <- c(seg_assignments, 1:leftovers) # add "leftover" observations if necessary
+
+}
+set.seed(8675309) # set random seed (is it bad that I always use 867-5309?)
+seg_assignments <- sample(seg_assignments) # randomly permute segment assignments
+```
+
+Next, we must cunduct a grid search across many possible values of $\lambda_1$ and $\lambda_2$. The `glmnet()` function in the `glmnet` package takes as arguments `alpha` and `lambda`, where what we are calling $\lambda_1$ is given by $\alpha \lambda$ and what we are calling $\lambda_2$ is given by $(1-\alpha)\lambda$, so we actually want to grid search over possible values of `lambda` and `alpha` being passed to the `glmnet()` function. It is important to note that using this parameterization $\lambda$ is constrained to be larger than 0 and $\alpha$ is constrained to be between 0 and 1.
+
+A brief look at the documentation for the `glmnet()` function (see `?glmnet`) reveals that the argument `alpha` takes a scalar value, but the argument `lambda` may take a vector of many $\lambda$ values to try. The documentation states
+     Do not supply a single value for `lambda` ... . Supply instead a decreasing sequence of `lambda` values. `glmnet` relies on its warms starts for speed, and its often faster to fit a whole path than compute a single fit.
+
+So for the sake of speed we will create a vector of (decreasing) `lambda` values to pass to the `glmnet()` function with each call and repeat this for several values of `alpha`, supplied in seperate calls. We will do this for each of our k (10) folds, computing the validation errors as we go.
+
+Since we will pass many `lambda` values to `glmnet()` at a time, but only one `alpha` value at a time to the function, it will simplify things to define a function to extract the validation error for all of the `lambda`s supplied with one call to the `glmnet()` function.
+
+```{r}
+get_val_errs <- function(alpha, lambdas, train_data, train_response, test_data, test_response){
+  # fit the elastic net for all lambda values
+  fit <- glmnet(train_data, train_response, alpha=alpha, lambda=lambdas)
+  # use the models fit to predict test data
+  preds <- predict(fit, newx=test_data)
+  # calculate the mean squared error in the test data for each value of lambda
+  MSEs <- apply(preds, 2, function(x)mean((x-test_response)^2))
+  # return a data.frame with alpha, lambdas, and corresponding MSEs
+  return(data.frame(alpha=rep(alpha, length(MSEs)), lambda=lambdas, MSE=MSEs))
+}
+```
+
+Now that we can succinctly compute the mean squared error of cross validation for a given value of `alpha` and given test and training data, we begin our cross-validation.
+
+```{r, cache=TRUE}
+lambda_vec <- seq(50, 1, by=-1) # lambdas to try for each alpha
+alphas <- seq(0, 1, by=0.05) # alphas to try
+
+# preallocate an empty list with a slot for each of the k validation folds
+results <- vector(mode='list', length=k)
+
+for(i in 1:k){ # k validation folds
+  # define training data matrix
+  x <- model.matrix(Balance~., subset(credit, seg_assignments!=k))[,-1]
+  # and the training response vector
+  y <- credit$Balance[seg_assignments!=k]
+  
+  # define the test data matrix
+  x_test <- model.matrix(Balance~., subset(credit, seg_assignments==k))[,-1]
+  # and the test response vector
+  y_test <- credit$Balance[seg_assignments==k]
+
+  # succinctly loop over alphas, finding MSE for each lambda as we go
+  result_list <- sapply(alphas, get_val_errs, lambdas=lambda_vec, train_data=x, train_response=y, test_data=x_test, test_response=y_test, simplify=F)
+  # convert the list into a data.frame using rbind()
+  result_df <- Reduce(rbind, result_list)
+  # assing a field for k
+  result_df$k <- i
+  # deposit results into preallocated list
+  results[[i]] <- result_df
+}
+```
+
+Since we are searching over two parameters we can visualize the cross-validation errors for each `alpha`/`lambda` combination.
+```{r}
+# average the MSEs from all k folds
+results_all <- Reduce(rbind, results)
+results_agg <- aggregate(MSE~alpha+lambda, data=results_all, mean)
+# plot a heat map of the MSEs by alpha and lambda
+library(ggplot2)
+ggplot(results_agg, aes(x=alpha, y=lambda, z=MSE))+
+  geom_tile(aes(fill=MSE))+
+  stat_contour()
+```
+
+The lowest MSEs appear to coincide with higher values of $\alpha$ and values of $\lambda$ in the 15-30 range. 
+```{r}
+results_agg[which.min(results_agg$MSE),]
+```
+
+The smallest MSE occurs at $\alpha=1, \, \lambda=20$.
 
 ### b) Repeat the same question as in (a) but using now the *one-standard-error* (1–SE) rule cross validation
 
