@@ -2,7 +2,10 @@
 title: "STA6106 Statistic Computing Project2"
 author: "Robert Norberg, Jung-Han Wang"
 date: "Wednesday, October 22, 2014"
-output: html_document
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document: default
 ---
 
 ```{r ChunkSettings, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
@@ -107,7 +110,7 @@ cat(c(x0,y0), '--(Left=Start Point, Right=Extreme Value)--', newton(f3, c(x0,y0)
 
 ### b. Minimize g using the steepest descent method. Use (1,0) as starting point.
 
-Define function using Golden-Section method to find $x_l \lt x_m \lt x_r$ such that $f(x_l) \ge f(x_m)  and  f(x_r) \ge f(x_m)$
+Define function using Golden-Section method to find $$x_l < x_m < x_r$$ such that $$f(x_l) \ge f(x_m) \; and \; f(x_r) \ge f(x_m)$$
 
 ```{r}
 gsection = function(ftn, x.l, x.r, x.m, tol = 1e-9) {
