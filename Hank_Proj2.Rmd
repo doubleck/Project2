@@ -401,6 +401,7 @@ find_update_irls <- function(Z, W, working_response){
   numerator <- t(Z)%*%W%*%working_response
   denominator <- t(Z)%*%W%*%Z
   update <- solve(denominator)%*%numerator
+  return(update)
 }
 ```
 
