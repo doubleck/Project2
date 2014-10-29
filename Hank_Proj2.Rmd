@@ -110,11 +110,11 @@ cat(c(x0,y0), '--(Left=Start Point, Right=Extreme Value)--', newton(f3, c(x0,y0)
 
 ### b. Minimize g using the steepest descent method. Use (1,0) as starting point.
 
-<<<<<<< HEAD
 Define function using Golden-Section method to find $$x_l < x_m < x_r$$ such that $$f(x_l) \ge f(x_m) \; and \; f(x_r) \ge f(x_m)$$
-=======
-Define function using Golden-Section method to find $x_l < x_m < x_r$ such that $f(x_l) \ge f(x_m)  and  f(x_r) \ge f(x_m)$
->>>>>>> 1995ed7bebbd08612e0195d6d66cf40fa80a3b83
+
+
+Define function using Golden-Section method to find $x_l < x_m < x_r$ such that $f(x_l) \ge f(x_m) \; and \; f(x_r) \ge f(x_m)$
+
 
 ```{r}
 gsection = function(ftn, x.l, x.r, x.m, tol = 1e-9) {
@@ -300,7 +300,85 @@ To find MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$ we designate the vec
 y <- challenger$oring
 x <- challenger$temp
 Z <- cbind(rep(1, nrow(challenger)), challenger$temp)
+
+
+##Set up likelihood function
+
+lf<-function(theta, Y,X) 
+  {n<-nrow(X)
+  k<-ncol(X)
+  beta<-theta[1:k]
+  e<-y-x%*%beta
+  logl<--.5*n*log(2*pi)-.5*n*log(sigma2)-
+  ((t(e)%*%e)/(2*sigma2))
+  return(-logl)
+  }
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 $\pmb{Z}$ will remain unchanged, but for each iteration we will need to compute the predicted probabilities $\pi_1, ...\pi_n$ using the current values of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will also need to compute for each iteration $\pmb{W}$, the diagonal matrix with diagonal entry $i$ equal to $\pi_i(1-\pi_1)$. Below, we define a function to do each of these computations.
 ```{r}
