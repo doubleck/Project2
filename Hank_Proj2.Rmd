@@ -256,6 +256,10 @@ descent(f,gradf,c(1,0) )
 ```
 
 ## Problem2
+```{r, echo=FALSE}
+
+# #### Begin Problem 2 ####
+```
 
 In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather ($31^\circ F$ or $0^\circ C$) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the dataset challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, $(1\le i \le 24)$.
 
@@ -439,6 +443,10 @@ $$p = \dfrac{e^{\beta_0 + (\beta_1)(31)}}{1+e^{\beta_0 + (\beta_1)(31)}} = \dfra
 This prediction means that we are almost certain that at least one O-ring will fail at $31^\circ F$.
 
 ## Problem 3
+```{r, echo=FALSE}
+
+# #### Begin Problem 3 ####
+```
 
 The elastic net (Zou and Hastie, 2006) is considered to be a compromise between the ridge and lasso penalties. The elastic net can be formulated using the Lagrangian as follows:
 
