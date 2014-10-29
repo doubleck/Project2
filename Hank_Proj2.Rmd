@@ -116,11 +116,7 @@ cat(c(x0,y0), '--(Left=Start Point, Right=Extreme Value)--', newton(f3, c(x0,y0)
 
 ### b. Minimize g using the steepest descent method. Use (1,0) as starting point.
 
-<<<<<<< HEAD
-Define function using Golden-Section method to find $$x_l < x_m < x_r$$ such that $$f(x_l) \ge f(x_m) \; and \; f(x_r) \ge f(x_m)$$
-=======
 Define function using Golden-Section method to find $x_l < x_m < x_r$ such that $f(x_l) \ge f(x_m)  and  f(x_r) \ge f(x_m)$
->>>>>>> 1995ed7bebbd08612e0195d6d66cf40fa80a3b83
 
 ```{r}
 gsection = function(ftn, x.l, x.r, x.m, tol = 1e-9) {
