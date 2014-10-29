@@ -569,6 +569,92 @@ ggplot(results_agg, aes(x=alpha, y=lambda, z=MSE))+
   theme_bw(base_size=10)
 ```
 
+### b) Repeat the same question as in (a) but using now the *one-standard-error* (1–SE) rule cross validation.
+
+We define the standard error of cross validation as follows:
+
+$$SE(\alpha, \lambda) = \dfrac{\sqrt{var(CV_1(\alpha, \lambda), ..., CV_k(\alpha, \lambda))}}{\sqrt{k}}$$
+
+For a particular $(\alpha, \lambda)$ pair, this is the standard deviation of the $k$ computed MSEs ($CV_1(\alpha, \lambda), ..., CV_k(\alpha, \lambda)$) divided by $\sqrt(k)$. Recall that each of the MSEs ($CV_1(\alpha, \lambda), ..., CV_k(\alpha, \lambda)$) are stored in the list object `results_all`. From these we can compute the standard error $$SE(\alpha, \lambda)$$ for each $(\alpha, \lambda)$ pair.
+```{r}
+# calculate std dev of MSEs
+results_SEs <- aggregate(MSE~alpha+lambda, data=results_all, sd)
+# divide by sqrt(k)
+results_SEs$MSE <- results_SEs$MSE/sqrt(k)
+# rename column for less confusion
+names(results_SEs) <- gsub('MSE', 'StdErr', names(results_SEs))
+```
+
+The standard error of the best $(\alpha, \lambda)$ pair is
+```{r}
+SE_best_model <- results_SEs[results_SEs$alpha==bestMSE$alpha & results_SEs$lambda==bestMSE$lambda, ]
+
+SE_best_model
+```
+
+From this we compute the largest tolerable $CV(\alpha, \lambda)$.
+```{r}
+MSE_max_tolerable <- bestMSE$MSE+SE_best_model$StdErr
+```
+
+Next, we retrieve all $(\alpha, \lambda)$ pairs with a cross-validation error $CV(\alpha, \lambda)$ less than this amount.
+```{r}
+candidate_lambdas <- results_agg[results_agg$MSE<MSE_max_tolerable, c('alpha', 'lambda')]
+```
+
+These candidate $(\alpha, \lambda)$ pairs are highlighted (in white) on the figure from earlier.
+
+```{r, echo=FALSE}
+# plot a heat map of the MSEs by alpha and lambda
+ggplot(results_agg, aes(x=alpha, y=lambda, z=MSE))+
+  geom_tile(aes(fill=MSE))+
+  stat_contour(bins=12)+
+  geom_point(data=bestMSE, color='red', size=3)+
+  geom_text(data=bestMSE, aes(label=paste0('(', alpha, ', ', lambda, ')')), color='white', vjust=-1)+
+  geom_tile(data=candidate_lambdas, aes(fill=NULL, z=NULL), fill='white', alpha=0.5)+
+  theme_bw(base_size=10)
+```
+
+It turns out that there are many candidate models with a cross-validation error $CV(\alpha, \lambda)$ below the threshold $CV(\widehat{\alpha}, \widehat{\lambda})+SE(\widehat{\alpha}, \widehat{\lambda})$. In fact, we could choose literally any value of $\alpha$ and any $\lambda$ less than 20. We want to choose the simplest or most regularized model in this candidate model space. Since $\lambda$ is the penalty parameter for model terms, larger values of $\lambda$ will result in a simpler model. When $\alpha = 1$, we have the LASSO model, which results in simpler models by setting coefficient values ($\beta$'s) to 0. From the figure we can see that favoring $\alpha = 1$ limits the largest candidate $\lambda$ we can choose. 
+
+One way to define the "simplest model" is that which has the fewest nonzero parameters. Since some parameter values may be very small, but not quite zero, we will refine this definition slightly so that the "simplest model" is the model in the candidate model space with the fewest parameters larger in absolute value than 0.001. Given this definition, we fit models in the candidate model space on *all* of the data and select the model with the fewest parameter estimates $|\widehat{\beta}_p| \ge 0.001$.
+
+```{r}
+# define data matrix
+x <- model.matrix(Balance~., credit)[,-1]
+# and the response vector
+y <- credit$Balance
+
+# define a function 
+find_nonzero_parameters <- function(alpha, lambda, data, response){
+  fit <- glmnet(data, response, alpha=alpha, lambda=c(lambda))
+  betas <- fit$beta@x # @ accesses a slot in an s4 object
+  num_nonzero <- sum(abs(betas)>0.001)
+  return(num_nonzero)
+}
+# use mapply() to iterate over alpha and lambda together
+candidate_lambdas$num_params <- mapply(find_nonzero_parameters, 
+                                       alpha=candidate_lambdas$alpha, 
+                                       lambda=candidate_lambdas$lambda, 
+                                       MoreArgs=list(data=x, response=y))
+# how many params does the smallest model have?
+min(candidate_lambdas$num_params)
+```
+
+The model(s) with the fewest number of non-zero (approximately) parameters include four parameters. Several models in the candidate model space have four non-zero parameters however.
+```{r}
+final_candidate_lambdas <- candidate_lambdas[candidate_lambdas$num_params==4,]
+final_candidate_lambdas
+```
+
+Unsurprisingly, these all have large values of $\alpha$, which corresponds to the LASSO model, which we know tends to favor fewer parameters. Of these models, we will choose the one with the smallest cross-validation error $CV(\alpha, \lambda)$.
+```{r}
+# merge with MSEs by alpha and lambda
+final_candidate_lambdas <- merge(final_candidate_lambdas, results_agg, by=c('alpha', 'lambda'), all.x=T, all.y=F)
+# best, simplest model using 1-SE rule
+final_candidate_lambdas[which.min(final_candidate_lambdas$MSE),]
+```
+
 ## Appendix with R code
 
 ```{r all-code, ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE, tidy.opts=list(keep.blank.line=T)}
