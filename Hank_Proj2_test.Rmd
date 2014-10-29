@@ -1,0 +1,626 @@
+---
+title: "STA6106 Statistic Computing Project2"
+author: "Robert Norberg, Jung-Han Wang"
+date: "Wednesday, October 22, 2014"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r ChunkSettings, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+# Clear working environment
+rm(list=ls())
+library(glmnet)
+
+# Options for document compilation
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, comment=NA, fig.width=4, fig.height=3)
+```
+
+## Problem1
+
+The function g is given by 
+
+$$ g(x,y) = 4xy + (x + y^2)^2 $$
+
+
+The goal is to find the minimum of g.
+
+### a. Minimize g using Newton's method
+
+The Newton's Algorithm is: $$\pmb{x(n+1)=x(n)-H(x(n))^{-1}\bigtriangledown f(x(n))}$$
+
+First step we need to verify that $H(x(n))$ is non-singular.
+
+```{r}
+hx<-D(D(expression(4*x*y+(x+y^2)^2), 'x'),'x');hx ## Check H(X(n)) is a non-singular matrix
+```
+
+Setting up stopping condition to be: $$\pmb{\|\bigtriangledown f(x(n))\|} \le \epsilon $$
+
+
+```{r}
+newton <- function(f3, x0, tol = 1e-9, n.max = 100) {
+# Newton's method starting at x0
+# f3 is a function that given x returns the list
+# f(x), f'(x), Hessian f''(x)
+x <- x0  ## Set initial value
+f3.x <- f3(x) ## Set Input Function
+n <- 0 ## Set first turn n<-0
+while ((max(abs(f3.x[[2]])) > tol) & (n < n.max)) { ##Set Convergence Criteria. If f'(x) greater than tol(tolerance) go to n+1.
+x <- x - solve(f3.x[[3]], f3.x[[2]]) ##Calculate f'(x)/f''(x)
+f3.x <- f3(x) 
+n <- n + 1 ##Continue to the next n
+}
+if (n == n.max) { ##If n=maximum value, output "newton failed to converge"
+cat('newton failed to converge\n')
+} else {
+return(x)
+}
+}
+```
+
+Then Calculate first and second derivatives for function $g(x,y) = 4xy + (x + y^2)^2$ Using package (Ryacas).
+
+```{r}
+
+library(Ryacas);
+k <- function(x) {
+4*x[1]*x[2]+(x[1]+x[2]^2)^2
+}
+##Calculate First Derivative of Function to X  (f1)
+f1<-D(expression(4*x*y+(x+y^2)^2), 'x');f1
+##Calculate Second Derivative of Function to X (f11)
+f11<-D(D(expression(4*x*y+(x+y^2)^2), 'x'),'x');f11
+##Calculate First Derivative of Function to y  (f2)
+f2<-D(expression(4*x*y+(x+y^2)^2), 'y');f2
+##Calculate Second Derivative of Function to X (f22)
+f22<-D(D(expression(4*x*y+(x+y^2)^2), 'y'),'y');f22
+##Calculate Second Derivative of Function to X,y (f12)
+f12<-D(D(expression(4*x*y+(x+y^2)^2), 'x'),'y');f12
+```
+
+Set up function with return value using $\pmb{f}$(original function), $\pmb{\bigtriangledown f}$(first derivative function) and $\pmb{H(x(n))}$(second derivative function).
+
+```{r}
+f3 <- function(x) {
+f <- 4*x[1]*x[2]+(x[1]+x[2]^2)^2
+##Calculate First Derivative of Function to x[1]  (f1)
+f1<-4*x[2]+2*(x[1] + x[2]^2)
+##Calculate Second Derivative of Function to x[1] (f11)
+f11<-2
+##Calculate First Derivative of Function to x[2]  (f2)
+f2<-4 * x[1] + 2 * (2 * x[2] * (x[1] + x[2]^2))
+##Calculate Second Derivative of Function to x[1] (f22)
+f22<-2 * (2 * (x[1] + x[2]^2) + 2 * x[2] * (2 * x[2]))
+##Calculate Second Derivative of Function to x[1],x[2] (f12)
+f12<-4 + 2 * (2 * x[2])
+return(list(f, c(f1, f2), matrix(c(f11, f12, f12, f22), 2, 2)))  ##Return 3 values, f, f'(x), f''(x)
+}
+```
+
+Run the program with start point (0,0) and try add 0.5 each run.  Left side of the result represents the value of starting point.
+Right side of the result represent the value of the ending point.
+
+Find minimum point (0.8888889,-0.6666667), after try out the value of f3(X).
+```{r}
+for (x0 in seq(0,1, .5)) {
+for (y0 in seq(0,1, .5)) {
+cat(c(x0,y0), '--(Left=Start Point, Right=Extreme Value)--', newton(f3, c(x0,y0)), '\n')
+}}
+
+f3(c(0.8888889,-0.6666667))
+f3(c(-7.438748e-11,6.286889e-11))
+f3(c(-4.225566e-14,4.196096e-14  ))
+f3(c(-1.3112e-14,1.293993e-14))
+
+```
+
+### b. Minimize g using the steepest descent method. Use (1,0) as starting point.
+
+Define function using Golden-Section method to find $$x_l < x_m < x_r$$ such that $$f(x_l) \ge f(x_m) \; and \; f(x_r) \ge f(x_m)$$
+
+
+Define function using Golden-Section method to find $x_l < x_m < x_r$ such that $f(x_l) \ge f(x_m) \; and \; f(x_r) \ge f(x_m)$
+
+
+```{r}
+gsection = function(ftn, x.l, x.r, x.m, tol = 1e-9) {
+   # applies the golden-section algorithm to minimize ftn
+   # we assume that ftn is a function of a single variable
+   # and that x.l < x.m < x.r and ftn(x.l), ftn(x.r) >= ftn(x.m)
+   
+   # the algorithm iteratively refines x.l, x.r, and x.m and terminates
+   # when x.r - x.l <= tol, then returns x.m
+   
+   # golden ratio plus one
+   gr1 = 1 + (1 + sqrt(5))/2
+   # successively refine x.l, x.r, and x.m
+   f.l = ftn(x.l)
+   f.r = ftn(x.r)
+   f.m = ftn(x.m)
+   while ((x.r - x.l) > tol) {  
+      if ((x.r - x.m) > (x.m - x.l)) {
+         y = x.m + (x.r - x.m)/gr1
+         f.y = ftn(y)
+         if (f.y <= f.m) {
+            x.l = x.m
+            f.l = f.m
+            x.m = y
+            f.m = f.y
+         } else {
+            x.r = y
+            f.r = f.y
+         }
+      } else {
+         y = x.m - (x.m - x.l)/gr1
+         f.y = ftn(y)
+         if (f.y <= f.m) {
+            x.r = x.m
+            f.r = f.m
+            x.m = y
+            f.m = f.y
+         } else {
+            x.l = y
+            f.l = f.y
+         }
+      }
+   }
+   return(x.m)
+}
+```
+
+Create Function F=$4xy + (x + y^2)^2$
+
+```{r}
+##Set Function F
+f <- function(x) {
+f <- 4*x[1]*x[2]+(x[1]+x[2]^2)^2
+  return(f)
+}
+```
+
+Set up first order partial derivative Function F for x and y.
+
+```{r}
+##Set Function Gradient F f'(x)
+gradf<- function (x)
+  {##Calculate First Derivative of Function to x[1]  (f1)
+  f1<-4*x[2]+2*(x[1] + x[2]^2)
+  ##Calculate First Derivative of Function to x[2]  (f2)
+  f2<-4 * x[1] + 2 * (2 * x[2] * (x[1] + x[2]^2))
+  return(c(f1, f2))
+  }
+```
+
+Set up algorithm for gradient line search. Trying to find Minimum point between $x_l and x_r$ 
+
+```{r}
+line.search <- function(f, x, gradf, tol = 1e-9, a.max = 100) {
+# x and gradf are vectors of length d
+# g(a) =f(x +a*gradf) hasa local minumum at a,
+# within a tolerance
+# if no local minimum is found then we use 0 or a.max for a
+# the value returned is x + a*y
+if (sum(abs(gradf)) == 0) return(x) # g(a) constant
+g <- function(a) return(f(x - a*gradf))
+
+# find a.l < a.m < a.r such that
+# g(a.m) >=g(a.l)  and g(a.m) >= g(a.r)
+# a.l
+a.l <- 0
+g.l <- g(a.l)
+# a.m
+a.m <- 1
+g.m <- g(a.m)
+while ((g.m > g.l) & (a.m > tol)) {
+a.m <- a.m/2
+g.m <- g(a.m)
+}
+# if a suitable a.m was not found then use 0 for a
+if ((a.m <= tol) & (g.m >= g.l)) return(x)
+# a.r
+a.r <- 2*a.m
+g.r <- g(a.r)
+while ((g.m >= g.r) & (a.r < a.max)) {
+a.m <- a.r
+g.m <- g.r
+a.r <- 2*a.m
+g.r <- g(a.r)
+}
+# if a suitable a.r was not found then use a.max for a
+if ((a.r >= a.max) & (g.m > g.r)) return(x - a.max*gradf)
+# apply golden-section algorithm to g to find a
+a <- gsection(g, a.l, a.r, a.m)
+return(x - a*gradf)
+}
+```
+
+Set up iteration using Steepest Descent Algorithm.
+
+```{r}
+descent <- function(f,gradf, x0, tol = 1e-9, n.max = 100) {
+# steepest descent algorithm
+# find a local minimum of f starting at x0
+# function gradf is the gradient of f
+x <- x0
+x.old <- x
+x <- line.search(f, x, gradf(x))
+n <- 1
+while (f(x.old)-(f(x)> tol) & (n < n.max)) {
+x.old <- x
+x <- line.search(f, x, gradf(x))
+n <- n + 1
+}
+return(x)
+}
+
+```
+
+The minimize result is (0.8888889,-0.6666667), which is identical point to problem 1-1.
+```{r}
+descent(f,gradf,c(1,0) )
+
+```
+
+## Problem2
+
+In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather ($31^\circ F$ or $0^\circ C$) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the dataset challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, $(1\le i \le 24)$.
+
+```{r}
+# load challenger data
+library(mcsm)
+data(challenger)
+```
+
+
+### a) The goal is to obtain MLEs for $\beta_0$ and $\beta_1$ in the following logistic regression model
+
+$$log \left( \dfrac{p}{1-p} \right) = \beta_0+\beta_1x$$
+
+where $p$ is the probability that at least one O-ring is damaged and $x$
+is the temperature. Create computer programs using Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
+
+The log-likelihood is given by
+
+$$l(\beta) = \pmb{y}^T \pmb{Z \beta}-\pmb{b}^T \pmb{1}$$
+
+where $\pmb{1}$ is a column vector of ones, $\pmb{y} = (y_1...y_n)^T$, $\pmb{b} = (b(\theta_1)...b(\theta_n))^T$, and $\pmb{Z}$ is the $n\, X\, 2$ matrix whose $i$ th row is $\pmb{z}_i^T$.
+
+The score function is 
+
+$$\pmb{l}'(\pmb{\beta})=\pmb{Z}^T(\pmb{y}-\pmb{\pi})$$
+
+where $\pmb{\pi}$ is a column vector of the Bernoulli probabilities $\pi_1, ..., \pi_n$. The Hessian is given by 
+
+$$\pmb{l}''(\pmb{\beta}) = \dfrac{d}{d \pmb{\beta}}(\pmb{Z}^T(\pmb{y}-\pmb{\pi})) = -\left( \dfrac{d \pmb{\pi}}{d \pmb{\beta}} \right)^T \pmb{Z} = -\pmb{Z}^T\pmb{WZ}$$
+
+where $\pmb{W}$ is a diagonal matrix with $i$ th diagonal entry equal to $\pi_i(1-\pi_i)$.
+
+Newton's update is therefore 
+
+$$\pmb{\beta}^{(t+1)} = \pmb{\beta}^{(t)}-\pmb{l}''(\pmb{\beta}^{(t)})^{-1}\pmb{l}'(\pmb{\beta}^{(t)}) = \pmb{\beta}^{(t)}+\left( \pmb{Z}^T\pmb{W}^{(t)}\pmb{Z}\right)^{-1}\left(\pmb{Z}^T(\pmb{y}-\pmb{\pi}^{(t)})\right)$$
+
+where $\pmb{\pi}^{(t)}$ is the value of $\pmb{\pi}$ corresponding to $\pmb{\beta}^{(t)}$, and $\pmb{W}^{(t)}$ is the diagonal weight matrix evaluated at $\pmb{\pi}^{(t)}$.
+
+To find MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$ we designate the vector $\pmb{y}$ to be the response vector in the data and $\pmb{Z}$ to be the $n\, X\, 2$ matrix of ones and temperatures.
+```{r}
+y <- challenger$oring
+x <- challenger$temp
+Z <- cbind(rep(1, nrow(challenger)), challenger$temp)
+
+
+##Set up likelihood function
+
+lf = function(beta, mX, vY) {
+  -log(1+(exp(beta[1]+mX*beta[2])))+vY*(beta[1]+mX*beta[2])
+}
+##Calculate First Derivative of Function to X (lf1)
+lf1<-D(expression(-log(1+(exp(b0+mX*b1)))+vY*(b0+mX*b1)),'b0');lf1
+##Calculate Second Derivative of Function to X (f11)
+lf11<-D(D(expression(-log(1+(exp(b0+mX*b1)))+vY*(b0+mX*b1)),'b0'),'b0');lf11
+##Calculate First Derivative of Function to y  (f2)
+lf2<-D(expression(-log(1+(exp(b0+mX*b1)))+vY*(b0+mX*b1)),'b1');lf2
+##Calculate Second Derivative of Function to X (f22)
+lf22<-D(D(expression(-log(1+(exp(b0+mX*b1)))+vY*(b0+mX*b1)),'b1'),'b1');lf22
+##Calculate Second Derivative of Function to X,y (f12)
+lf12<-D(D(expression(-log(1+(exp(b0+mX*b1)))+vY*(b0+mX*b1)),'b0'),'b1');lf12
+
+
+lf3 <- function(beta,mX,vY) {
+f <- -log(1)+(exp(beta[1]+mX*beta[2]))+vY*(beta[1]+mX*beta[2])
+##Calculate First Derivative of Function to x[1]  (f1)
+f1<- vY - exp(beta[1] + mX * beta[2])/(1 + (exp(beta[1] + mX * beta[2])))
+##Calculate Second Derivative of Function to x[1] (f11)
+f11<- -(exp(beta[1] + mX * beta[2])/(1 + (exp(beta[1] + mX * beta[2]))) - exp(beta[1] + mX * 
+    beta[2]) * exp(beta[1] + mX * beta[2])/(1 + (exp(beta[1] + mX * beta[2])))^2)
+##Calculate First Derivative of Function to x[2]  (f2)
+f2<- vY * mX - exp(beta[1] + mX * beta[2]) * mX/(1 + (exp(beta[1] + mX * beta[2])))
+##Calculate Second Derivative of Function to x[1] (f22)
+f22<- -(exp(beta[1] + mX * beta[2]) * mX * mX/(1 + (exp(beta[1] + mX * beta[2]))) - exp(beta[1] + mX * beta[2]) * mX * (exp(beta[1] + mX * beta[2]) * mX)/(1 + (exp(beta[1] + mX * beta[2])))^2)
+##Calculate Second Derivative of Function to x[1],x[2] (f12)
+f12<- -(exp(beta[1] + mX * beta[2]) * mX/(1 + (exp(beta[1] + mX * beta[2]))) - exp(beta[1] + mX * beta[2]) * (exp(beta[1] + mX * beta[2]) * mX)/(1 + (exp(beta[1] + mX * beta[2])))^2)
+
+return(list(f, c(f1, f2), matrix(c(f11, f12, f12, f22), 2, 2)))  ##Return 3 values, f, f'(x), f''(x)
+}
+
+
+newton2 <- function(lf3, beta0,x,y, tol = 1e-9, n.max = 100) {
+# Newton's method starting at x0
+# f3 is a function that given x returns the list
+# f(x), f'(x), Hessian f''(x)
+mX<-x
+vY<-y
+beta <- beta0  ## Set initial value
+lf3.beta <- lf3(beta,mX,vY) ## Set Input Function
+n <- 0 ## Set first turn n<-0
+while ((max(abs(lf3.beta[[2]])) > tol) & (n < n.max)) { ##Set Convergence Criteria. If f'(x) greater than tol(tolerance) go to n+1.
+beta <- beta - solve(lf3.beta[[3]], lf3.beta[[2]]) #Calculate f'(x)/f''(x)
+lf3.beta <- lf3(beta,mX,vY) 
+n <- n + 1 ##Continue to the next n
+}
+if (n == n.max) { ##If n=maximum value, output "newton failed to converge"
+cat('newton failed to converge\n')
+} else {
+return(beta)
+}
+}
+
+newton2(lf3, c(2,2),x,y) 
+```
+
+$\pmb{Z}$ will remain unchanged, but for each iteration we will need to compute the predicted probabilities $\pi_1, ...\pi_n$ using the current values of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will also need to compute for each iteration $\pmb{W}$, the diagonal matrix with diagonal entry $i$ equal to $\pi_i(1-\pi_1)$. Below, we define a function to do each of these computations.
+```{r}
+find_pis <- function(beta, x){
+  # beta a vector of parameter estimates, x a vector of independent variable observations
+  pis <- exp(beta%*%t(Z))/(1+exp(beta%*%t(Z)))
+  return(pis)
+}
+
+find_W <- function(pis){
+  W <- diag(c(pis*(1-pis)))
+  return(W)
+}
+```
+
+Next we difine a function to calculate Newton's update using $\pmb{Z}$, $\pmb{y}$, $\pmb{\beta}$, and the $\pi s$ and $\pmb{W}$ calculated using the functions above.
+```{r}
+find_update <- function(beta, Z, W, y, pis){
+  numerator <- t(Z)%*%(y-t(pis))
+  denominator <- t(Z)%*%W%*%Z
+  update <- solve(denominator)%*%numerator
+  return(beta+c(update))
+}
+```
+
+Finally, we must define a stopping criterion so that the algorithm ceases to update at some point and returns to us values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will stop updating our estimates when an iteration takes place that does not change them. We are not concerned with accuracy at more than seven decimal places, but we will write the program so that this may be changed.
+
+We choose startting values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$ to be $[0, 0]$, as is reccomended in the textbook. Then we begin a while loop to update these estimates until convergence occurs.
+```{r}
+beta <- c(0, 0)
+old_beta <- c(NA, NA)
+counter <- 0
+decimal_places_of_precision <- 7
+verbose <- TRUE
+
+while(!identical(beta, old_beta)){
+  pis <- find_pis(beta, x)
+  W <- find_W(pis)
+  # set old beta equal to current beta before updating
+  old_beta <- beta
+  # replace beta with updated estimates
+  beta <- find_update(beta, Z, W, y, pis)
+  # round to the number of decimal places desired
+  beta <- round(beta, decimal_places_of_precision)
+  counter <- counter+1
+  # show us the current value of beta if "verbose" is TRUE
+  if(verbose==T){
+    msg <- paste0('Iteration ', counter, ': Beta = (', beta[1], ', ', beta[2], ')')
+  cat(msg)
+  cat('\n')
+  }
+}
+```
+
+Now that the while loop has terminated, the current values of `beta` should be the MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We check these against the estimates given using the `glm()` function in R.
+```{r}
+# see our estimates
+print(beta)
+# see the glm estimates
+glm(y~x, family=binomial)$coefficients
+```
+
+Our estimates match those produced by the `glm()` function, so we are confident that we have correctly found the MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$.
+
+### b) Solve the same problem using the "Iterative Reweighted Least Squares" algorithm and the Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
+
+If we let 
+
+$$\pmb{e}^{(t)} = \pmb{y}-\pmb{\pi}^{(t)}$$
+
+and
+
+$$\pmb{x}^{(t)} = \pmb{Z\beta}^{(t)} + (\pmb{W}^{(t)})^{-1}\pmb{e}^{(t)}$$
+
+then the Fisher scoring update can be written as 
+
+$$\pmb{\beta}^{(t+1)} = \pmb{\beta}+\left( \pmb{Z}^T\pmb{W}^{(t)}\pmb{Z} \right)^{-1} \pmb{Z}^T\pmb{e}^{(t)}$$
+$$ = \left( \pmb{Z}^T\pmb{W}^{(t)}\pmb{Z}\right)^{-1}\pmb{Z}^T\pmb{W}^{(t)}\pmb{x}^{(t)}$$
+
+where $\pmb{x}^{(t)}$ is the *working response* that gets updated with eac iteration.
+
+If we reuse the functions defined earlier to calculate $\pmb{\pi}$ and $\pmb{W}$, we just need to define a function for calculating $\pmb{x}$ and define a new function for updating using the iteratively reweighted least squares update before we begin to iterate. We define a function for calculating $\pmb{x}$ as follows:
+```{r}
+find_x <- function(y, beta, pis, Z, W){
+  e_t <- y-c(pis)
+  x <- Z%*%beta+solve(W)%*%e_t
+  return(x)
+}
+```
+
+And a new updating function:
+```{r}
+find_update_irls <- function(Z, W, working_response){
+  numerator <- t(Z)%*%W%*%working_response
+  denominator <- t(Z)%*%W%*%Z
+  update <- solve(denominator)%*%numerator
+}
+```
+
+Next we choose $(0, \, 0)$ for the initial values of $\pmb{\beta}$ and begin another while loop, this time updating using the iteratively reweighted least squares update. (We are still satisfied with 7 decimal places of accuracy.)
+```{r}
+beta <- c(0, 0)
+old_beta <- c(NA, NA)
+counter <- 0
+decimal_places_of_precision <- 7
+verbose <- TRUE
+
+while(!identical(beta, old_beta)){
+  pis <- find_pis(beta, x)
+  W <- find_W(pis)
+  working_response <- find_x(y, beta, pis, Z, W)
+  # set old beta equal to current beta before updating
+  old_beta <- beta
+  # replace beta with updated estimates
+  beta <- find_update_irls(Z, W, working_response)
+  # round to the number of decimal places desired
+  beta <- round(c(beta), decimal_places_of_precision)
+  counter <- counter+1
+  # show us the current value of beta if "verbose" is TRUE
+  if(verbose==T){
+    msg <- paste0('Iteration ', counter, ': Beta = (', beta[1], ', ', beta[2], ')')
+  cat(msg)
+  cat('\n')
+  }
+}
+```
+
+We arrive at the same MLEs as before, in the same number of iterations as before.
+
+### c) We are also interested in predicting O-ring failure. Challenger was launched at $31^\circ F$. What is the predicted probability of O-ring damage at $31^\circ F$ ? How many O-ring failures should be expected at $31^\circ F$ ? What can you conclude?
+
+At $31^\circ F$ we predict the probability of at least one O-ring failure to be 
+
+$$p = \dfrac{e^{\beta_0 + (\beta_1)(31)}}{1+e^{\beta_0 + (\beta_1)(31)}} = \dfrac{e^{15.0429 + (-0.2322)(31)}}{1+e^{15.0429 + (-0.2322)(31)}} = 0.9996$$
+
+This prediction means that we are almost certain that at least one O-ring will fail at $31^\circ F$.
+
+## Problem 3
+
+The elastic net (Zou and Hastie, 2006) is considered to be a compromise between the ridge and lasso penalties. The elastic net can be formulated using the Lagrangian as follows:
+
+$$\widehat{\beta}^{enet} = \underset{\beta}{\mathrm{argmin}}\sum\limits_{i=1}^{n}(y_i-x'_1 \beta)^2 + \lambda_1 \sum\limits_{j=1}^{p} |\beta_j| + \lambda_2 \sum\limits_{j=1}^{p}\beta_j^2$$
+
+where $\lambda_1 \ge 0$ and $\lambda_2 \ge 0$.
+The "credit" data set is discussed in the textbook of James et al., p83. We will fit the elastic net model to the "credit" data set using only the quantitative predictors. Our challenge is to select the appropriate $\lambda_1$ and $\lambda_2$ before fitting the final model.
+
+```{r, echo=FALSE}
+library(RCurl) # for interacting with web pages
+myfile <- getURL("http://www-bcf.usc.edu/~gareth/ISL/Credit.csv") # grab the content of this page
+credit <- read.csv(textConnection(myfile), header=T) # read the page content as a .csv
+credit$X <- NULL # get rid of row ID column
+# find only the column with a numeric class (or integer)
+num_cols <- names(credit)[sapply(credit, class)%in%c('numeric', 'integer')]
+# now subset the data set to only take the numeric columns
+credit <- credit[, num_cols]
+```
+
+### a) Write a function in R using the cross-validation approach to find the optimum values of $\lambda_1$ and $\lambda_2$
+
+We opt to use ten fold cross-validation, but we will write the code so that it may be generalized for k-fold cross validation. 
+
+The first task for our ten fold cross-validation is to divide the data into ten folds. We borrow some code from last assignment to accomplish this.
+```{r}
+k <- 10 # for 10-fold cross-validation
+n <- nrow(credit) # sample size
+seg_size <- floor(n/k) # approx size of each segment
+leftovers <- n%%k # n mod k
+seg_assignments <- rep(1:k, each=seg_size) # create segment assignments
+if(leftovers > 0){
+  seg_assignments <- c(seg_assignments, 1:leftovers) # add "leftover" observations if necessary
+
+}
+set.seed(8675309) # set random seed (is it bad that I always use 867-5309?)
+seg_assignments <- sample(seg_assignments) # randomly permute segment assignments
+```
+
+Next, we must cunduct a grid search across many possible values of $\lambda_1$ and $\lambda_2$. The `glmnet()` function in the `glmnet` package takes as arguments `alpha` and `lambda`, where what we are calling $\lambda_1$ is given by $\alpha \lambda$ and what we are calling $\lambda_2$ is given by $(1-\alpha)\lambda$, so we actually want to grid search over possible values of `lambda` and `alpha` being passed to the `glmnet()` function. It is important to note that using this parameterization $\lambda$ is constrained to be larger than 0 and $\alpha$ is constrained to be between 0 and 1.
+
+A brief look at the documentation for the `glmnet()` function (see `?glmnet`) reveals that the argument `alpha` takes a scalar value, but the argument `lambda` may take a vector of many $\lambda$ values to try. The documentation states
+     Do not supply a single value for `lambda` ... . Supply instead a decreasing sequence of `lambda` values. `glmnet` relies on its warms starts for speed, and its often faster to fit a whole path than compute a single fit.
+
+So for the sake of speed we will create a vector of (decreasing) `lambda` values to pass to the `glmnet()` function with each call and repeat this for several values of `alpha`, supplied in seperate calls. We will do this for each of our k (10) folds, computing the validation errors as we go.
+
+Since we will pass many `lambda` values to `glmnet()` at a time, but only one `alpha` value at a time to the function, it will simplify things to define a function to extract the validation error for all of the `lambda`s supplied with one call to the `glmnet()` function.
+
+```{r}
+get_val_errs <- function(alpha, lambdas, train_data, train_response, test_data, test_response){
+  # fit the elastic net for all lambda values
+  fit <- glmnet(train_data, train_response, alpha=alpha, lambda=lambdas)
+  # use the models fit to predict test data
+  preds <- predict(fit, newx=test_data)
+  # calculate the mean squared error in the test data for each value of lambda
+  MSEs <- apply(preds, 2, function(x)mean((x-test_response)^2))
+  # return a data.frame with alpha, lambdas, and corresponding MSEs
+  return(data.frame(alpha=rep(alpha, length(MSEs)), lambda=lambdas, MSE=MSEs))
+}
+```
+
+Now that we can succinctly compute the mean squared error of cross validation for a given value of `alpha` and given test and training data, we begin our cross-validation.
+
+```{r, cache=TRUE}
+lambda_vec <- seq(50, 1, by=-1) # lambdas to try for each alpha
+alphas <- seq(0, 1, by=0.05) # alphas to try
+
+# preallocate an empty list with a slot for each of the k validation folds
+results <- vector(mode='list', length=k)
+
+for(i in 1:k){ # k validation folds
+  # define training data matrix
+  x <- model.matrix(Balance~., subset(credit, seg_assignments!=k))[,-1]
+  # and the training response vector
+  y <- credit$Balance[seg_assignments!=k]
+  
+  # define the test data matrix
+  x_test <- model.matrix(Balance~., subset(credit, seg_assignments==k))[,-1]
+  # and the test response vector
+  y_test <- credit$Balance[seg_assignments==k]
+
+  # succinctly loop over alphas, finding MSE for each lambda as we go
+  result_list <- sapply(alphas, get_val_errs, lambdas=lambda_vec, train_data=x, train_response=y, test_data=x_test, test_response=y_test, simplify=F)
+  # convert the list into a data.frame using rbind()
+  result_df <- Reduce(rbind, result_list)
+  # assing a field for k
+  result_df$k <- i
+  # deposit results into preallocated list
+  results[[i]] <- result_df
+}
+```
+
+Since we are searching over two parameters we can visualize the cross-validation errors for each `alpha`/`lambda` combination.
+```{r}
+# average the MSEs from all k folds
+results_all <- Reduce(rbind, results)
+results_agg <- aggregate(MSE~alpha+lambda, data=results_all, mean)
+# plot a heat map of the MSEs by alpha and lambda
+library(ggplot2)
+ggplot(results_agg, aes(x=alpha, y=lambda, z=MSE))+
+  geom_tile(aes(fill=MSE))+
+  stat_contour()
+```
+
+The lowest MSEs appear to coincide with higher values of $\alpha$ and values of $\lambda$ in the 15-30 range. 
+```{r}
+results_agg[which.min(results_agg$MSE),]
+```
+
+The smallest MSE occurs at $\alpha=1, \, \lambda=20$.
+
+### b) Repeat the same question as in (a) but using now the *one-standard-error* (1–SE) rule cross validation
+
+## Appendix with R code
+
+```{r all-code, ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE, tidy.opts=list(keep.blank.line=T)}
+```
+
+-----
+
