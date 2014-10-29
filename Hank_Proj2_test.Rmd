@@ -312,7 +312,8 @@ Z <- cbind(rep(1, nrow(challenger)), challenger$temp)
 ##Set up likelihood function
 
 lf = function(beta, mX, vY) {
-  -log(1+(exp(beta[1]+mX*beta[2])))+vY*(beta[1]+mX*beta[2])
+  a<- -log(1+(exp(beta[1]+mX*beta[2])))+vY*(beta[1]+mX*beta[2])
+  return(sum(a))
 }
 ##Calculate First Derivative of Function to X (lf1)
 lf1<-D(expression(-log(1+(exp(b0+mX*b1)))+vY*(b0+mX*b1)),'b0');lf1
@@ -331,8 +332,7 @@ f <- -log(1)+(exp(beta[1]+mX*beta[2]))+vY*(beta[1]+mX*beta[2])
 ##Calculate First Derivative of Function to x[1]  (f1)
 f1<- vY - exp(beta[1] + mX * beta[2])/(1 + (exp(beta[1] + mX * beta[2])))
 ##Calculate Second Derivative of Function to x[1] (f11)
-f11<- -(exp(beta[1] + mX * beta[2])/(1 + (exp(beta[1] + mX * beta[2]))) - exp(beta[1] + mX * 
-    beta[2]) * exp(beta[1] + mX * beta[2])/(1 + (exp(beta[1] + mX * beta[2])))^2)
+f11<- -(exp(beta[1] + mX * beta[2])/(1 + (exp(beta[1] + mX * beta[2]))) - exp(beta[1] + mX * beta[2]) * exp(beta[1] + mX * beta[2])/(1 + (exp(beta[1] + mX * beta[2])))^2)
 ##Calculate First Derivative of Function to x[2]  (f2)
 f2<- vY * mX - exp(beta[1] + mX * beta[2]) * mX/(1 + (exp(beta[1] + mX * beta[2])))
 ##Calculate Second Derivative of Function to x[1] (f22)
@@ -340,7 +340,14 @@ f22<- -(exp(beta[1] + mX * beta[2]) * mX * mX/(1 + (exp(beta[1] + mX * beta[2]))
 ##Calculate Second Derivative of Function to x[1],x[2] (f12)
 f12<- -(exp(beta[1] + mX * beta[2]) * mX/(1 + (exp(beta[1] + mX * beta[2]))) - exp(beta[1] + mX * beta[2]) * (exp(beta[1] + mX * beta[2]) * mX)/(1 + (exp(beta[1] + mX * beta[2])))^2)
 
-return(list(f, c(f1, f2), matrix(c(f11, f12, f12, f22), 2, 2)))  ##Return 3 values, f, f'(x), f''(x)
+sf<-(sum(f));
+sf1<-(sum(f1));
+sf2<-(sum(f2));
+sf11<-(sum(f11));
+sf12<-(sum(f12));
+sf22<-(sum(f22));
+
+return(list(sf, c(sf1, sf2), matrix(c(sf11, sf12, sf12, sf22), 2, 2)))  ##Return 3 values, f, f'(x), f''(x)
 }
 
 
@@ -365,7 +372,8 @@ return(beta)
 }
 }
 
-newton2(lf3, c(2,2),x,y) 
+beta<-c(2,2)
+newton2(lf3,c(3,3),x,y) 
 ```
 
 $\pmb{Z}$ will remain unchanged, but for each iteration we will need to compute the predicted probabilities $\pi_1, ...\pi_n$ using the current values of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will also need to compute for each iteration $\pmb{W}$, the diagonal matrix with diagonal entry $i$ equal to $\pi_i(1-\pi_1)$. Below, we define a function to do each of these computations.
