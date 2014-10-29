@@ -106,23 +106,28 @@ return(list(f, c(f1, f2), matrix(c(f11, f12, f12, f22), 2, 2)))  ##Return 3 valu
 
 Run the program with start point (0,0) and try add 0.5 each run.  Left side of the result represents the value of starting point.
 Right side of the result represent the value of the ending point.
+
+Find minimum point (0.8888889,-0.6666667), after try out the value of f3(X).
 ```{r}
 for (x0 in seq(0,1, .5)) {
 for (y0 in seq(0,1, .5)) {
 cat(c(x0,y0), '--(Left=Start Point, Right=Extreme Value)--', newton(f3, c(x0,y0)), '\n')
 }}
 
+f3(c(0.8888889,-0.6666667))
+f3(c(-7.438748e-11,6.286889e-11))
+f3(c(-4.225566e-14,4.196096e-14  ))
+f3(c(-1.3112e-14,1.293993e-14))
+
 ```
 
 ### b. Minimize g using the steepest descent method. Use (1,0) as starting point.
 
-<<<<<<< HEAD
 Define function using Golden-Section method to find $$x_l < x_m < x_r$$ such that $$f(x_l) \ge f(x_m) \; and \; f(x_r) \ge f(x_m)$$
 
 
 Define function using Golden-Section method to find $x_l < x_m < x_r$ such that $f(x_l) \ge f(x_m) \; and \; f(x_r) \ge f(x_m)$
 
-=======
 Define function using Golden-Section method to find $x_l < x_m < x_r$ such that $f(x_l) \ge f(x_m)  and  f(x_r) \ge f(x_m)$
 >>>>>>> e451a1ef45d1d7ab46e3146714d1a9b09d1b2224
 
@@ -259,7 +264,7 @@ return(x)
 
 ```
 
-The minimize result is
+The minimize result is (0.8888889,-0.6666667), which is identical point to problem 1-1.
 ```{r}
 descent(f,gradf,c(1,0) )
 
