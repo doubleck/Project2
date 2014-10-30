@@ -31,97 +31,68 @@ $$ g(x,y) = 4xy + (x + y^2)^2 $$
 
 The goal is to find the minimum of g.
 
-### a. Minimize g using Newton's method
+### a) Minimize g using Newton's method
 
-The Newton's Algorithm is: $$\pmb{x(n+1)=x(n)-H(x(n))^{-1}\bigtriangledown f(x(n))}$$
+The Newton's method update is given by
 
-First step we need to verify that $H(x(n))$ is non-singular.
+$$\pmb{x}^{(t+1)}=\pmb{x}^{(t)}-\pmb{g}''(\pmb{x}^{(t)})^{-1}\pmb{g}'(\pmb{x}^{(t)})$$,
 
+Where $\pmb{g}'(\pmb{x}^{(t)})$ is the gradient and $\pmb{g}''(\pmb{x}^{(t)})$ is the hessian of $g(x, y)$ evaluated at $(x^{(t)}, y^{(t)})$. We use the R function `deriv3()` to define another function for us that will compute the gradient and Hessian of $\pmb{x}$ for given values of $x$ and $y$.
 ```{r}
-hx<-D(D(expression(4*x*y+(x+y^2)^2), 'x'),'x');hx ## Check H(X(n)) is a non-singular matrix
+deriv_g <- deriv3(g~4*x*y+(x+y^2)^2, c('x', 'y'), c('x', 'y'))
 ```
 
-Setting up stopping condition to be: $$\pmb{\|\bigtriangledown f(x(n))\|} \le \epsilon $$
-
-
+`deriv_g()` is now a function that takes arguments `x` and `y` and will return an object with attributes `gradient` and `hessian`. We demonstrate the use of this function using $(x, y) = (1, 1)$.
 ```{r}
-newton <- function(f3, x0, tol = 1e-9, n.max = 100) {
-# Newton's method starting at x0
-# f3 is a function that given x returns the list
-# f(x), f'(x), Hessian f''(x)
-x <- x0  ## Set initial value
-f3.x <- f3(x) ## Set Input Function
-n <- 0 ## Set first turn n<-0
-while ((max(abs(f3.x[[2]])) > tol) & (n < n.max)) { ##Set Convergence Criteria. If f'(x) greater than tol(tolerance) go to n+1.
-x <- x - solve(f3.x[[3]], f3.x[[2]]) ##Calculate f'(x)/f''(x)
-f3.x <- f3(x) 
-n <- n + 1 ##Continue to the next n
-}
-if (n == n.max) { ##If n=maximum value, output "newton failed to converge"
-cat('newton failed to converge\n')
-} else {
-return(x)
-}
+my_deriv <- deriv_g(x=1, y=1) # test the function deriv_g()
+attr(my_deriv, 'gradient') # checks out
+attr(my_deriv, 'hessian') # checks out
+```
+
+On scratch paper we found the gradient and hessian by hand and confirmed that this function returns the appropriate values.
+
+We leverage this function to create another function that will provide the Newton update given a value of $x$ and $y$.
+```{r}
+newton_update <- function(x, y){
+  my_deriv <- deriv_g(x=x, y=y) # evaluate gradient and hessian
+  gradient <- matrix(attr(my_deriv, 'gradient'), nrow=2) # extract gradient
+  hessian <- matrix(attr(my_deriv, 'hessian'), nrow=2) # extract hessian
+  update <- c(x, y) - c(solve(hessian)%*%gradient) # calculate update
+  names(update) <- c('x', 'y')
+  return(update)
 }
 ```
 
-Then Calculate first and second derivatives for function $g(x,y) = 4xy + (x + y^2)^2$ Using package (Ryacas).
+We will choose some starting values $(x^{(0)}, y^{(0)})$ and continue to update these values until some criterion is met. We define the stopping criteria to be
 
+$$D(\pmb{x}^{(t+1)}, \pmb{x}^{(t)}) \le \epsilon$$,
+
+where $D(\pmb{x}^{(t+1)}, \pmb{x}^{(t)})$ is the distance between the values of $\pmb{x}$ at iteration $t$ and $t+1$. This distance may be computed several ways. We take advantage of the `dist()` function in R to calculate distances for us and we write our code in such a way that the user may easily choose which measure of distance they prefer. We choose the familiar euclidean distance for this problem.
+
+We set $\epsilon=1E-9$, choose inital values $\pmb{x}^{(0)}=(x^{(0)}, y^{(0)})=(1, 1)$ and begin to iterate.
 ```{r}
+dist_type <- 'euclidean' # see ?dist for other options
+epsilon <- 1E-9 # convergence criterion
+x_current <- c('x'=1, 'y'=1) # inital values
+x_prev <- c('x'=Inf, 'y'=Inf) # no previous values yet!
+counter <- 0 # for counting iterations
+verbose <- TRUE # do you want to get updates?
 
-library(Ryacas);
-k <- function(x) {
-4*x[1]*x[2]+(x[1]+x[2]^2)^2
-}
-##Calculate First Derivative of Function to X  (f1)
-f1<-D(expression(4*x*y+(x+y^2)^2), 'x');f1
-##Calculate Second Derivative of Function to X (f11)
-f11<-D(D(expression(4*x*y+(x+y^2)^2), 'x'),'x');f11
-##Calculate First Derivative of Function to y  (f2)
-f2<-D(expression(4*x*y+(x+y^2)^2), 'y');f2
-##Calculate Second Derivative of Function to X (f22)
-f22<-D(D(expression(4*x*y+(x+y^2)^2), 'y'),'y');f22
-##Calculate Second Derivative of Function to X,y (f12)
-f12<-D(D(expression(4*x*y+(x+y^2)^2), 'x'),'y');f12
+while(dist(rbind(x_current, x_prev), method=dist_type) > epsilon){
+  counter <- counter+1
+  x_prev <- x_current
+  x_current <- newton_update(x=x_current['x'], y=x_current['y'])
+  if(verbose==T){
+    msg <- paste0('Iteration ', counter, ': x = (', x_current[1], ', ', x_current[2], ')')
+    cat(msg)
+    cat('\n')
+    }
+  }
 ```
 
-Set up function with return value using $\pmb{f}$(original function), $\pmb{\bigtriangledown f}$(first derivative function) and $\pmb{H(x(n))}$(second derivative function).
+The algorithm eventually converges and we find that $g(x, y)$ has an optimum at $(`r x_current['x']`, `r x_current['y']`)$. Note that given different initial values the algorithm might converge to a different optimum, which may or may not be the global minimum of the function. In fact, the function $g(x, y)$ has no global minimum. If $x=-1*y^2$, the function decreases infinitely as $y$ increases.
 
-```{r}
-f3 <- function(x) {
-f <- 4*x[1]*x[2]+(x[1]+x[2]^2)^2
-##Calculate First Derivative of Function to x[1]  (f1)
-f1<-4*x[2]+2*(x[1] + x[2]^2)
-##Calculate Second Derivative of Function to x[1] (f11)
-f11<-2
-##Calculate First Derivative of Function to x[2]  (f2)
-f2<-4 * x[1] + 2 * (2 * x[2] * (x[1] + x[2]^2))
-##Calculate Second Derivative of Function to x[1] (f22)
-f22<-2 * (2 * (x[1] + x[2]^2) + 2 * x[2] * (2 * x[2]))
-##Calculate Second Derivative of Function to x[1],x[2] (f12)
-f12<-4 + 2 * (2 * x[2])
-return(list(f, c(f1, f2), matrix(c(f11, f12, f12, f22), 2, 2)))  ##Return 3 values, f, f'(x), f''(x)
-}
-```
-
-Run the program with start point (0,0) and try add 0.5 each run.  Left side of the result represents the value of starting point.
-Right side of the result represent the value of the ending point.
-
-Find minimum point (0.8888889,-0.6666667), after try out the value of f3(X).
-```{r}
-for (x0 in seq(0,1, .5)) {
-for (y0 in seq(0,1, .5)) {
-cat(c(x0,y0), '--(Left=Start Point, Right=Extreme Value)--', newton(f3, c(x0,y0)), '\n')
-}}
-
-f3(c(0.8888889,-0.6666667))
-f3(c(-7.438748e-11,6.286889e-11))
-f3(c(-4.225566e-14,4.196096e-14  ))
-f3(c(-1.3112e-14,1.293993e-14))
-
-```
-
-### b. Minimize g using the steepest descent method. Use (1,0) as starting point.
+### b) Minimize g using the steepest descent method. Use (1,0) as starting point.
 
 Define function using Golden-Section method to find $$x_l < x_m < x_r$$ such that $$f(x_l) \ge f(x_m) \; and \; f(x_r) \ge f(x_m)$$
 
