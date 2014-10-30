@@ -1,8 +1,10 @@
 ---
 title: "STA6106 Statistic Computing Project2"
 author: "Robert Norberg, Jung-Han Wang"
-date: "Wednesday, October 22, 2014"
-output: pdf_document
+date: "Wednesday, October 29, 2014"
+output:
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r ChunkSettings, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
@@ -33,7 +35,7 @@ The goal is to find the minimum of g.
 
 The Newton's method update is given by
 
-$$\pmb{x}^{(t+1)}=\pmb{x}^{(t)}-\pmb{g}''(\pmb{x}^{(t)})^{-1}\pmb{g}'(\pmb{x}^{(t)})$$,
+$$\pmb{x}^{(t+1)}=\pmb{x}^{(t)}-\pmb{g}''(\pmb{x}^{(t)})^{-1}\pmb{g}'(\pmb{x}^{(t)})$$
 
 Where $\pmb{g}'(\pmb{x}^{(t)})$ is the gradient and $\pmb{g}''(\pmb{x}^{(t)})$ is the hessian of $g(x, y)$ evaluated at $(x^{(t)}, y^{(t)})$. We use the R function `deriv3()` to define another function for us that will compute the gradient and Hessian of $\pmb{x}$ for given values of $x$ and $y$.
 ```{r}
@@ -63,7 +65,7 @@ newton_update <- function(x, y){
 
 We will choose some starting values $(x^{(0)}, y^{(0)})$ and continue to update these values until some criterion is met. We define the stopping criteria to be
 
-$$D(\pmb{x}^{(t+1)}, \pmb{x}^{(t)}) \le \epsilon$$,
+$$D(\pmb{x}^{(t+1)}, \pmb{x}^{(t)}) \le \epsilon$$
 
 where $D(\pmb{x}^{(t+1)}, \pmb{x}^{(t)})$ is the distance between the values of $\pmb{x}$ at iteration $t$ and $t+1$. This distance may be computed several ways. We take advantage of the `dist()` function in R to calculate distances for us and we write our code in such a way that the user may easily choose which measure of distance they prefer. We choose the familiar euclidean distance for this problem.
 
@@ -162,7 +164,7 @@ gradf<- function (x)
   }
 ```
 
-Next we define a function to perform a line search to find the minimum point between $x_l and x_r$.
+Next we define a function to perform a line search to find the minimum point between $x_l \; and \; x_r$.
 
 ```{r}
 line.search <- function(f, x, gradf, tol = 1e-9, a.max = 100) {
