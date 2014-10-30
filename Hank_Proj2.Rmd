@@ -2,9 +2,7 @@
 title: "STA6106 Statistic Computing Project2"
 author: "Robert Norberg, Jung-Han Wang"
 date: "Wednesday, October 22, 2014"
-output:
-  pdf_document:
-    latex_engine: xelatex
+output: pdf_document
 ---
 
 ```{r ChunkSettings, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
@@ -94,69 +92,67 @@ The algorithm eventually converges and we find that $g(x, y)$ has an optimum at 
 
 ### b) Minimize g using the steepest descent method. Use (1,0) as starting point.
 
-Define function using Golden-Section method to find $$x_l < x_m < x_r$$ such that $$f(x_l) \ge f(x_m) \; and \; f(x_r) \ge f(x_m)$$
+Using Golden-Section method we wish to find $x_l < x_m < x_r$ such that $g(x_l) \ge g(x_m)$ and $g(x_r) \ge g(x_m)$. We define a function to compute this 
 
 
 ```{r}
 gsection = function(ftn, x.l, x.r, x.m, tol = 1e-9) {
-   # applies the golden-section algorithm to minimize ftn
-   # we assume that ftn is a function of a single variable
-   # and that x.l < x.m < x.r and ftn(x.l), ftn(x.r) >= ftn(x.m)
-   
-   # the algorithm iteratively refines x.l, x.r, and x.m and terminates
-   # when x.r - x.l <= tol, then returns x.m
-   
-   # golden ratio plus one
-   gr1 = 1 + (1 + sqrt(5))/2
-   # successively refine x.l, x.r, and x.m
-   f.l = ftn(x.l)
-   f.r = ftn(x.r)
-   f.m = ftn(x.m)
-   while ((x.r - x.l) > tol) {  
-      if ((x.r - x.m) > (x.m - x.l)) {
-         y = x.m + (x.r - x.m)/gr1
-         f.y = ftn(y)
-         if (f.y <= f.m) {
-            x.l = x.m
-            f.l = f.m
-            x.m = y
-            f.m = f.y
-         } else {
-            x.r = y
-            f.r = f.y
-         }
+  # applies the golden-section algorithm to minimize ftn
+  # we assume that ftn is a function of a single variable
+  # and that x.l < x.m < x.r and ftn(x.l), ftn(x.r) >= ftn(x.m)
+  
+  # the algorithm iteratively refines x.l, x.r, and x.m and terminates
+  # when x.r - x.l <= tol, then returns x.m
+  
+  # golden ratio plus one
+  gr1 = 1 + (1 + sqrt(5))/2
+  # successively refine x.l, x.r, and x.m
+  f.l = ftn(x.l)
+  f.r = ftn(x.r)
+  f.m = ftn(x.m)
+  while ((x.r - x.l) > tol) {  
+    if ((x.r - x.m) > (x.m - x.l)) {
+      y = x.m + (x.r - x.m)/gr1
+      f.y = ftn(y)
+      if (f.y <= f.m) {
+        x.l = x.m
+        f.l = f.m
+        x.m = y
+        f.m = f.y
+        } else {
+          x.r = y
+          f.r = f.y
+          }
       } else {
-         y = x.m - (x.m - x.l)/gr1
-         f.y = ftn(y)
-         if (f.y <= f.m) {
-            x.r = x.m
-            f.r = f.m
-            x.m = y
-            f.m = f.y
-         } else {
+        y = x.m - (x.m - x.l)/gr1
+        f.y = ftn(y)
+        if (f.y <= f.m) {
+          x.r = x.m
+          f.r = f.m
+          x.m = y
+          f.m = f.y
+          } else {
             x.l = y
             f.l = f.y
-         }
-      }
-   }
-   return(x.m)
-}
+            }
+        }
+    }
+  return(x.m)
+  }
 ```
 
-Create Function F=$4xy + (x + y^2)^2$
+We define in R our function $g(x, y) = 4xy + (x + y^2)^2$
 
 ```{r}
-##Set Function F
 f <- function(x) {
-f <- 4*x[1]*x[2]+(x[1]+x[2]^2)^2
-  return(f)
-}
+  y <- 4*x[1]*x[2]+(x[1]+x[2]^2)^2
+  return(y)
+  }
 ```
 
-Set up first order partial derivative Function F for x and y.
+Then we define a function to compute the gradient of $g(x, y)$.
 
 ```{r}
-##Set Function Gradient F f'(x)
 gradf<- function (x)
   {##Calculate First Derivative of Function to x[1]  (f1)
   f1<-4*x[2]+2*(x[1] + x[2]^2)
@@ -166,75 +162,71 @@ gradf<- function (x)
   }
 ```
 
-Set up algorithm for gradient line search. Trying to find Minimum point between $x_l and x_r$ 
+Next we define a function to perform a line search to find the minimum point between $x_l and x_r$.
 
 ```{r}
 line.search <- function(f, x, gradf, tol = 1e-9, a.max = 100) {
-# x and gradf are vectors of length d
-# g(a) =f(x +a*gradf) hasa local minumum at a,
-# within a tolerance
-# if no local minimum is found then we use 0 or a.max for a
-# the value returned is x + a*y
-if (sum(abs(gradf)) == 0) return(x) # g(a) constant
-g <- function(a) return(f(x - a*gradf))
-
-# find a.l < a.m < a.r such that
-# g(a.m) >=g(a.l)  and g(a.m) >= g(a.r)
-# a.l
-a.l <- 0
-g.l <- g(a.l)
-# a.m
-a.m <- 1
-g.m <- g(a.m)
-while ((g.m > g.l) & (a.m > tol)) {
-a.m <- a.m/2
-g.m <- g(a.m)
-}
-# if a suitable a.m was not found then use 0 for a
-if ((a.m <= tol) & (g.m >= g.l)) return(x)
-# a.r
-a.r <- 2*a.m
-g.r <- g(a.r)
-while ((g.m >= g.r) & (a.r < a.max)) {
-a.m <- a.r
-g.m <- g.r
-a.r <- 2*a.m
-g.r <- g(a.r)
-}
-# if a suitable a.r was not found then use a.max for a
-if ((a.r >= a.max) & (g.m > g.r)) return(x - a.max*gradf)
-# apply golden-section algorithm to g to find a
-a <- gsection(g, a.l, a.r, a.m)
-return(x - a*gradf)
-}
+  # x and gradf are vectors of length d
+  # g(a) =f(x +a*gradf) hasa local minumum at a,
+  # within a tolerance
+  # if no local minimum is found then we use 0 or a.max for a
+  # the value returned is x + a*y
+  if (sum(abs(gradf)) == 0) return(x) # g(a) constant
+  g <- function(a) return(f(x - a*gradf))
+  
+  # find a.l < a.m < a.r such that
+  # g(a.m) >=g(a.l)  and g(a.m) >= g(a.r)
+  # a.l
+  a.l <- 0
+  g.l <- g(a.l)
+  # a.m
+  a.m <- 1
+  g.m <- g(a.m)
+  while ((g.m > g.l) & (a.m > tol)) {
+    a.m <- a.m/2
+    g.m <- g(a.m)
+    }
+  # if a suitable a.m was not found then use 0 for a
+  if ((a.m <= tol) & (g.m >= g.l)) return(x)
+  # a.r
+  a.r <- 2*a.m
+  g.r <- g(a.r)
+  while ((g.m >= g.r) & (a.r < a.max)) {
+    a.m <- a.r
+    g.m <- g.r
+    a.r <- 2*a.m
+    g.r <- g(a.r)
+    }
+  # if a suitable a.r was not found then use a.max for a
+  if ((a.r >= a.max) & (g.m > g.r)) return(x - a.max*gradf)
+  # apply golden-section algorithm to g to find a
+  a <- gsection(g, a.l, a.r, a.m)
+  return(x - a*gradf)
+  }
 ```
 
-Set up iteration using Steepest Descent Algorithm.
+Finally we use the functions defined above to perform a steepest descent optimization.
 
 ```{r}
 descent <- function(f,gradf, x0, tol = 1e-9, n.max = 100) {
-# steepest descent algorithm
-# find a local minimum of f starting at x0
-# function gradf is the gradient of f
-x <- x0
-x.old <- x
-x <- line.search(f, x, gradf(x))
-n <- 1
-while (f(x.old)-(f(x)> tol) & (n < n.max)) {
-x.old <- x
-x <- line.search(f, x, gradf(x))
-n <- n + 1
-}
-return(x)
-}
-
-```
-
-The minimize result is (0.8888889,-0.6666667), which is identical point to problem 1-1.
-```{r}
+  # steepest descent algorithm
+  # find a local minimum of f starting at x0
+  # function gradf is the gradient of f
+  x <- x0
+  x.old <- x
+  x <- line.search(f, x, gradf(x))
+  n <- 1
+  while (f(x.old)-(f(x)> tol) & (n < n.max)) {
+    x.old <- x
+    x <- line.search(f, x, gradf(x))
+    n <- n + 1
+    }
+  return(x)
+  }
 descent(f,gradf,c(1,0) )
-
 ```
+
+The values that minimize $g(x, y)$ are (0.8888889,-0.6666667), which is identical to the result obtained in part (a).
 
 ## Problem2
 ```{r, echo=FALSE}
@@ -262,7 +254,7 @@ The log-likelihood is given by
 
 $$l(\beta) = \pmb{y}^T \pmb{Z \beta}-\pmb{b}^T \pmb{1}$$
 
-where $\pmb{1}$ is a column vector of ones, $\pmb{y} = (y_1...y_n)^T$, $\pmb{b} = (b(\theta_1)...b(\theta_n))^T$, and $\pmb{Z}$ is the $n\, X\, 2$ matrix whose $i$ th row is $\pmb{z}_i^T$.
+where $\pmb{1}$ is a column vector of ones, $\pmb{y} = (y_1...y_n)^T$, $\pmb{b} = (b(\theta_1)...b(\theta_n))^T$, and $\pmb{Z}$ is the $n\, X\, 2$ matrix whose $i$ th row is $[1, x_i]$.
 
 The score function is 
 
