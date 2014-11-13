@@ -67,7 +67,7 @@ $$D(\pmb{x}^{(t+1)}, \pmb{x}^{(t)}) \le \epsilon$$,
 
 where $D(\pmb{x}^{(t+1)}, \pmb{x}^{(t)})$ is the distance between the values of $\pmb{x}$ at iteration $t$ and $t+1$. This distance may be computed several ways. We take advantage of the `dist()` function in R to calculate distances for us and we write our code in such a way that the user may easily choose which measure of distance they prefer. We choose the familiar euclidean distance for this problem.
 
-We set $\epsilon=1E-9$, choose inital values $\pmb{x}^{(0)}=(x^{(0)}, y^{(0)})=(1, 1)$ and begin to iterate.
+We set $\epsilon=1E-9$, choose initial values $\pmb{x}^{(0)}=(x^{(0)}, y^{(0)})=(1, 1)$ and begin to iterate.
 ```{r}
 dist_type <- 'euclidean' # see ?dist for other options
 epsilon <- 1E-9 # convergence criterion
@@ -396,12 +396,12 @@ set.seed(8675309) # set random seed (is it bad that I always use 867-5309?)
 seg_assignments <- sample(seg_assignments) # randomly permute segment assignments
 ```
 
-For each value of $k$, $\lambda_1$, and $\lambda_2$ we want to asses the accuracy of the model somehow. We will use as our critereon the cross-validation error 
+For each value of $k$, $\lambda_1$, and $\lambda_2$ we want to asses the accuracy of the model somehow. We will use as our criterion the cross-validation error 
 $$CV_k(\lambda_1, \lambda_2) = \dfrac{1}{n_k}\sum\limits_{i \in F_k}(y_i-\widehat{f}_{(\lambda_1, \lambda_2)}^{-k}(x_i))^2$$
 
 where $n_k$ is the fold size, $F_k$ is the set of observation in fold $k$ (the test set), and $\widehat{f}_{(\lambda_1, \lambda_2)}^{-k}(x)$ is the prediction function from the model fit to all observations *not* in $F_k$ using parameters $(\lambda_1, \lambda_2)$.
 
-Next, we must cunduct a grid search across many possible values of $\lambda_1$ and $\lambda_2$. The `glmnet()` function in the `glmnet` package takes as arguments `alpha` and `lambda`, where what we are calling $\lambda_1$ is given by $\alpha \lambda$ and what we are calling $\lambda_2$ is given by $(1-\alpha)\lambda$, so we actually want to grid search over possible values of `lambda` and `alpha` being passed to the `glmnet()` function. It is important to note that using this parameterization $\lambda$ is constrained to be larger than 0 and $\alpha$ is constrained to be between 0 and 1.
+Next, we must conduct a grid search across many possible values of $\lambda_1$ and $\lambda_2$. The `glmnet()` function in the `glmnet` package takes as arguments `alpha` and `lambda`, where what we are calling $\lambda_1$ is given by $\alpha \lambda$ and what we are calling $\lambda_2$ is given by $(1-\alpha)\lambda$, so we actually want to grid search over possible values of `lambda` and `alpha` being passed to the `glmnet()` function. It is important to note that using this parameterization $\lambda$ is constrained to be larger than 0 and $\alpha$ is constrained to be between 0 and 1.
 
 A brief look at the documentation for the `glmnet()` function (see `?glmnet`) reveals that the argument `alpha` takes a scalar value, but the argument `lambda` may take a vector of many $\lambda$ values to try. The documentation states
 
@@ -409,7 +409,7 @@ A brief look at the documentation for the `glmnet()` function (see `?glmnet`) re
      lambda values. glmnet relies on its warms starts for speed, and its often faster to fit 
      a whole path than compute a single fit.
 
-So for the sake of speed we will create a vector of (decreasing) `lambda` values to pass to the `glmnet()` function with each call and repeat this for several values of `alpha`, supplied in seperate calls. We will do this for each of our k (10) folds, computing the validation errors, $CV_k(\alpha, \lambda)$, as we go.
+So for the sake of speed we will create a vector of (decreasing) `lambda` values to pass to the `glmnet()` function with each call and repeat this for several values of `alpha`, supplied in separate calls. We will do this for each of our k (10) folds, computing the validation errors, $CV_k(\alpha, \lambda)$, as we go.
 
 Since we will pass many `lambda` values to `glmnet()` at a time, but only one `alpha` value at a time to the function, it will simplify things to define a function to extract the validation error, $CV_k(\alpha, \lambda)$, for all of the `lambda`s supplied with one call to the `glmnet()` function.
 
@@ -462,7 +462,7 @@ for(i in 1:k){ # k validation folds
 }
 ```
 
-The object `results` is now a list with k elements and each element is a `data.frame` with fields `k`, `alpha`, `lambda`, and `MSE`. We combine these homogenous list elements into one `data.frame` and find the average MSE for each set of `alpha` and `lambda` values (averaging the k MSE values calculated for each pair).
+The object `results` is now a list with k elements and each element is a `data.frame` with fields `k`, `alpha`, `lambda`, and `MSE`. We combine these homogeneous list elements into one `data.frame` and find the average MSE for each set of `alpha` and `lambda` values (averaging the k MSE values calculated for each pair).
 ```{r, cache=TRUE}
 # average the MSEs from all k folds
 results_all <- Reduce(rbind, results)
