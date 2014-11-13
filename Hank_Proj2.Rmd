@@ -234,7 +234,7 @@ The values that minimize $g(x, y)$ are (0.8888889,-0.6666667), which is identica
 # #### Begin Problem 2 ####
 ```
 
-In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather ($31^\circ F$ or $0^\circ C$) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the dataset challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, $(1\le i \le 24)$.
+In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather ($31^\circ F$ or $0^\circ C$) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the data set challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, $(1\le i \le 24)$.
 
 ```{r}
 # load challenger data
@@ -243,15 +243,107 @@ data(challenger)
 ```
 
 
-### a) The goal is to obtain MLEs for $\beta_0$ and $\beta_1$ in the following logistic regression model
+### a) The goal is to obtain MLEs for $\beta_0$ and $\beta_1$ in the following logistic regression model: $log \left( \dfrac{p}{1-p} \right) = \beta_0+\beta_1x$, where $p$ is the probability that at least one O-ring is damaged and $x$ is the temperature. Create computer programs using Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
 
-$$log \left( \dfrac{p}{1-p} \right) = \beta_0+\beta_1x$$
+The log-likelihood of the data, given values of $\beta_0$ and $\beta_1$ is given by
 
-where $p$ is the probability that at least one O-ring is damaged and $x$
-is the temperature. Create computer programs using Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
+$$\ell (x|\beta_0, \beta_1)=ln \left( \prod_{i=1}^n \dfrac{e^{\beta_0+\beta_1 x_i}}{1+e^{\beta_0+\beta_1 x_i}}\right)$$
+  $$= \sum_{i=1}^n-ln(1+e^{\beta_0+\beta_1 x_i})+y_i(\beta_0+\beta_1 x_i)$$
 
-The log-likelihood is given by
+The Newton's method update is given by
 
+$$(\beta_0^{(t+1)}, \beta_1^{(t+1)})=(\beta_0^{(t)}, \beta_1^{(t)})-\ell''(\beta_0^{(t)}, \beta_1^{(t)})^{-1}\ell'(\beta_0^{(t)}, \beta_1^{(t)})$$,
+
+Where $\ell'(\beta_0^{(t)}, \beta_1^{(t)})$ is the gradient of the log-likelihood and $\ell''(\beta_0^{(t)}, \beta_1^{(t)})$ is the hessian of the log-likelihood evaluated at $(\beta_0^{(t)}, \beta_1^{(t)})$. 
+
+Calculating the gradient and hessian by hand is rather messy, so we use the R function `deriv3()` to take the algebraic derivatives needed. The call to `deriv3()` defines a function that will compute the gradient and Hessian of the log-likelihood for given values of $x_i$, $y_i$, $\beta_0$, and $\beta_1$. 
+```{r}
+my_deriv_func <- deriv3(l~y*log(1/(1+exp(-b0-b1*x)))+(1-y)*log(1/(1+exp(b0+b1*x))), namevec=c('b0', 'b1'), function.arg=c('x', 'y', 'b0', 'b1'))
+```
+
+Note that we do not include the sum operator in the call to `deriv3()` because the function does not handle sums, but the derivative of a sum is equivalent to the sum of the derivative of each term being summed, so we can just evaluate the gradient and hessian at each $(x, y)$ pair and sum the results to find the overall gradient and hessian for a given $\beta_0$, and $\beta_1$.
+
+Since the function `my_deriv_func()` created above will evaluate the gradient and hessian at a single $(x, y)$ pair, I define another function to evaluate the gradient and hessian over all $(x, y)$ pairs in the data set. I employ `mapply()` to "apply" the function over the two vectors `mydat$age` and `mydat$kyphosis` simultaneously ("apply" over $(x, y)$ pairs). A call to `apply()` or `sapply()` will only operate over one vector at a time.
+
+```{r}
+deriv_all <- function(b0, b1, deriv_func){
+  # create gradient and hessian object for each (x, y) pair
+  deriv_list <- mapply(deriv_func, 
+                       x=challenger$temp, y=challenger$oring, 
+                       MoreArgs=list(b0=b0, b1=b1),
+                       SIMPLIFY=FALSE
+                       )
+  # extract all gradient components
+  gradient_list <- lapply(deriv_list, function(g) matrix(attr(g, 'gradient'), nrow=2))
+  # and sum them to get overall gradient at (b0, b1)
+  gradient <- Reduce('+', gradient_list)
+  # extract all hessian components
+  hessian_list <- lapply(deriv_list, function(g) matrix(attr(g, 'hessian'), nrow=2))
+  # and sum them to get overall hessian at (b0, b1)
+  hessian <- Reduce('+', hessian_list)
+  return(list('gradient'=gradient, 'hessian'=hessian))
+  }
+```
+
+Now a simple call to `deriv_all()` will return the gradient and hessian for a given $\beta_0$, and $\beta_1$. To demonstrate, we find the gradient and hessian of the log-likelihood at $(\beta_0, \beta_1) = (0.5, 0)$. 
+```{r}
+deriv_all(b0=0, b1=0, deriv_func=my_deriv_func)
+```
+
+To maximize the log-likelihood of $(\beta_0, \beta_1)$ using the Newton-Raphson algorithm, we define a function to compute the Newton update.
+
+```{r}
+newton_update <- function(b0, b1){
+  # get gradient and hessian
+  my_deriv <- deriv_all(b0=b0, b1=b1, deriv_func=my_deriv_func)
+  # calculate update
+  update <- c(b0, b1) - c(solve(my_deriv$hessian)%*%my_deriv$gradient) 
+  # retun update
+  names(update) <- c('b0', 'b1')
+  return(update)
+}
+```
+
+Finally we define a stopping criteria to terminate the Newton-Raphson iterations when the values of $(\beta_0, \beta_1)$ are close enough to an optimum.
+
+We define the stopping criteria to be
+
+$$D((\beta_0^{(t)}, \beta_1^{(t)}), (\beta_0^{(t+1)}, \beta_1^{(t+1)})) \le \epsilon$$,
+
+where $D((\beta_0^{(t)}, \beta_1^{(t)}), (\beta_0^{(t+1)}, \beta_1^{(t+1)}))$ is the distance in two dimensional space between the values of $(\beta_0, \beta_1)$ at iteration $t$ and $t+1$. We use the euclidean distance, but alternative distance measures may easily be substituted. (see `?dist`)
+
+We set $\epsilon=1E-9$, choose initial values $(\beta_0, \beta_1) = (0.5, 0)$ and begin to iterate.
+```{r, eval=FALSE}
+dist_type <- 'euclidean' # see ?dist for other options
+epsilon <- 1E-9 # convergence criterion
+x_current <- c('b0'=10, 'b1'=-0.1) # inital values
+x_prev <- c('b0'=Inf, 'b1'=Inf) # no previous values yet!
+counter <- 0 # for counting iterations
+verbose <- TRUE # do you want to get updates?
+
+while(dist(rbind(x_current, x_prev), method=dist_type) > epsilon){
+  counter <- counter+1
+  x_prev <- x_current
+  x_current <- newton_update(b0=x_current['b0'], b1=x_current['b1'])
+  if(verbose==T){
+    msg <- paste0('Iteration ', counter, ': b = (', 
+                  paste(signif(x_current, 5), collapse=', '),
+                  ')')
+    cat(msg)
+    cat('\n')
+    }
+  }
+```
+
+Well shit.
+
+I check the maximum likelihood estimates obtained above with `R`'s estimates, computed using the `glm()` (generalized linear model) function.
+```{r}
+glm_mod <- glm(oring~temp, data=challenger, family=binomial)
+glm_mod$coefficients
+```
+
+### b) Solve the same problem using the "Iterative Reweighted Least Squares" algorithm and the Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
 
 The log-likelihood of $(\beta_0, \beta_1)$ can be formulated using matrix notation as
 
