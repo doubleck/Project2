@@ -252,17 +252,20 @@ is the temperature. Create computer programs using Newton-Raphson algorithm to f
 
 The log-likelihood is given by
 
-$$l(\beta) = \pmb{y}^T \pmb{Z \beta}-\pmb{b}^T \pmb{1}$$
+
+The log-likelihood of $(\beta_0, \beta_1)$ can be formulated using matrix notation as
+
+$$\ell(\beta) = \pmb{y}^T \pmb{Z \beta}-\pmb{b}^T \pmb{1}$$,
 
 where $\pmb{1}$ is a column vector of ones, $\pmb{y} = (y_1...y_n)^T$, $\pmb{b} = (b(\theta_1)...b(\theta_n))^T$, and $\pmb{Z}$ is the $n\, X\, 2$ matrix whose $i$ th row is $[1, x_i]$.
 
-The score function is 
+The gradient is 
 
-$$\pmb{l}'(\pmb{\beta})=\pmb{Z}^T(\pmb{y}-\pmb{\pi})$$
+$$\ell'(\pmb{\beta})=\pmb{Z}^T(\pmb{y}-\pmb{\pi})$$
 
-where $\pmb{\pi}$ is a column vector of the Bernoulli probabilities $\pi_1, ..., \pi_n$. The Hessian is given by 
+where $\pmb{\pi}$ is a column vector of the Bernoulli probabilities $\pi_1, ..., \pi_n$. The Hessian is 
 
-$$\pmb{l}''(\pmb{\beta}) = \dfrac{d}{d \pmb{\beta}}(\pmb{Z}^T(\pmb{y}-\pmb{\pi})) = -\left( \dfrac{d \pmb{\pi}}{d \pmb{\beta}} \right)^T \pmb{Z} = -\pmb{Z}^T\pmb{WZ}$$
+$$\ell''(\pmb{\beta}) = \dfrac{d}{d \pmb{\beta}}(\pmb{Z}^T(\pmb{y}-\pmb{\pi})) = -\left( \dfrac{d \pmb{\pi}}{d \pmb{\beta}} \right)^T \pmb{Z} = -\pmb{Z}^T\pmb{WZ}$$
 
 where $\pmb{W}$ is a diagonal matrix with $i$ th diagonal entry equal to $\pi_i(1-\pi_i)$.
 
@@ -272,15 +275,15 @@ $$\pmb{\beta}^{(t+1)} = \pmb{\beta}^{(t)}-\pmb{l}''(\pmb{\beta}^{(t)})^{-1}\pmb{
 
 where $\pmb{\pi}^{(t)}$ is the value of $\pmb{\pi}$ corresponding to $\pmb{\beta}^{(t)}$, and $\pmb{W}^{(t)}$ is the diagonal weight matrix evaluated at $\pmb{\pi}^{(t)}$.
 
-To find MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$ we designate the vector $\pmb{y}$ to be the response vector in the data and $\pmb{Z}$ to be the $n\, X\, 2$ matrix of ones and temperatures.
+To find MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$ we designate the vector $\pmb{y}$ to be the response vector in the data and $\pmb{Z}$ to be the $n\, X\, 2$ matrix of ones and ages.
 ```{r}
 y <- challenger$oring
-x <- challenger$temp
+x  <- challenger$temp
 Z <- cbind(rep(1, nrow(challenger)), challenger$temp)
 
 ```
 
-$\pmb{Z}$ will remain unchanged, but for each iteration we will need to compute the predicted probabilities $\pi_1, ...\pi_n$ using the current values of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will also need to compute for each iteration $\pmb{W}$, the diagonal matrix with diagonal entry $i$ equal to $\pi_i(1-\pi_1)$. Below, we define a function to do each of these computations.
+$\pmb{Z}$ will remain unchanged, but for each iteration we will need to recompute the predicted probabilities $\pi_1, ...\pi_n$ using the current values of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will also need to compute at each iteration $\pmb{W}$, the diagonal matrix with diagonal entry $i$ equal to $\pi_i(1-\pi_i)$. Below, we define a function to do each of these computations.
 ```{r}
 find_pis <- function(beta, x){
   # beta a vector of parameter estimates, x a vector of independent variable observations
@@ -294,7 +297,7 @@ find_W <- function(pis){
 }
 ```
 
-Next we difine a function to calculate Newton's update using $\pmb{Z}$, $\pmb{y}$, $\pmb{\beta}$, and the $\pi s$ and $\pmb{W}$ calculated using the functions above.
+Next we define a function to calculate Newton's update using $\pmb{Z}$, $\pmb{y}$, $\pmb{\beta}$, and the $\pi s$ and $\pmb{W}$ calculated using the functions above.
 ```{r}
 find_update <- function(beta, Z, W, y, pis){
   numerator <- t(Z)%*%(y-t(pis))
@@ -304,9 +307,9 @@ find_update <- function(beta, Z, W, y, pis){
 }
 ```
 
-Finally, we must define a stopping criterion so that the algorithm ceases to update at some point and returns to us values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will stop updating our estimates when an iteration takes place that does not change them. We are not concerned with accuracy at more than seven decimal places, but we will write the program so that this may be changed.
+Finally, we must define a stopping criterion so that the algorithm ceases to update at some point and returns values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will stop updating the existing estimates when an iteration takes place that does not change them. We are not concerned with accuracy at more than seven decimal places, so we round the estimates at each iteration to seven decimal places and check at each iteration to see if the updated estimates are different from the previous iteration. This is equivalent to the convergence criteria $D(\pmb{\beta}^{(t+1)}, \pmb{\beta}^{(t)}) < 5E-7$.
 
-We choose startting values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$ to be $[0, 0]$, as is reccomended in the textbook. Then we begin a while loop to update these estimates until convergence occurs.
+We choose starting values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$ to be $(0, 0)$. Then we begin a while loop to update these estimates until convergence occurs.
 ```{r}
 beta <- c(0, 0)
 old_beta <- c(NA, NA)
@@ -333,81 +336,15 @@ while(!identical(beta, old_beta)){
 }
 ```
 
-Now that the while loop has terminated, the current values of `beta` should be the MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We check these against the estimates given using the `glm()` function in R.
+Now that the while loop has terminated, the current values of `beta` should be the MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. I check these against the estimates given using the `glm()` function in R.
 ```{r}
 # see our estimates
 print(beta)
 # see the glm estimates
-glm(y~x, family=binomial)$coefficients
+glm(oring~temp, data=challenger, family=binomial)$coefficients
 ```
 
 Our estimates match those produced by the `glm()` function, so we are confident that we have correctly found the MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$.
-
-### b) Solve the same problem using the "Iterative Reweighted Least Squares" algorithm and the Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
-
-If we let 
-
-$$\pmb{e}^{(t)} = \pmb{y}-\pmb{\pi}^{(t)}$$
-
-and
-
-$$\pmb{x}^{(t)} = \pmb{Z\beta}^{(t)} + (\pmb{W}^{(t)})^{-1}\pmb{e}^{(t)}$$
-
-then the Fisher scoring update can be written as 
-
-$$\pmb{\beta}^{(t+1)} = \pmb{\beta}+\left( \pmb{Z}^T\pmb{W}^{(t)}\pmb{Z} \right)^{-1} \pmb{Z}^T\pmb{e}^{(t)}$$
-$$ = \left( \pmb{Z}^T\pmb{W}^{(t)}\pmb{Z}\right)^{-1}\pmb{Z}^T\pmb{W}^{(t)}\pmb{x}^{(t)}$$
-
-where $\pmb{x}^{(t)}$ is the *working response* that gets updated with eac iteration.
-
-If we reuse the functions defined earlier to calculate $\pmb{\pi}$ and $\pmb{W}$, we just need to define a function for calculating $\pmb{x}$ and define a new function for updating using the iteratively reweighted least squares update before we begin to iterate. We define a function for calculating $\pmb{x}$ as follows:
-```{r}
-find_x <- function(y, beta, pis, Z, W){
-  e_t <- y-c(pis)
-  x <- Z%*%beta+solve(W)%*%e_t
-  return(x)
-}
-```
-
-And a new updating function:
-```{r}
-find_update_irls <- function(Z, W, working_response){
-  numerator <- t(Z)%*%W%*%working_response
-  denominator <- t(Z)%*%W%*%Z
-  update <- solve(denominator)%*%numerator
-  return(update)
-}
-```
-
-Next we choose $(0, \, 0)$ for the initial values of $\pmb{\beta}$ and begin another while loop, this time updating using the iteratively reweighted least squares update. (We are still satisfied with 7 decimal places of accuracy.)
-```{r}
-beta <- c(0, 0)
-old_beta <- c(NA, NA)
-counter <- 0
-decimal_places_of_precision <- 7
-verbose <- TRUE
-
-while(!identical(beta, old_beta)){
-  pis <- find_pis(beta, x)
-  W <- find_W(pis)
-  working_response <- find_x(y, beta, pis, Z, W)
-  # set old beta equal to current beta before updating
-  old_beta <- beta
-  # replace beta with updated estimates
-  beta <- find_update_irls(Z, W, working_response)
-  # round to the number of decimal places desired
-  beta <- round(c(beta), decimal_places_of_precision)
-  counter <- counter+1
-  # show us the current value of beta if "verbose" is TRUE
-  if(verbose==T){
-    msg <- paste0('Iteration ', counter, ': Beta = (', beta[1], ', ', beta[2], ')')
-  cat(msg)
-  cat('\n')
-  }
-}
-```
-
-We arrive at the same MLEs as before, in the same number of iterations as before.
 
 ### c) We are also interested in predicting O-ring failure. Challenger was launched at $31^\circ F$. What is the predicted probability of O-ring damage at $31^\circ F$ ? How many O-ring failures should be expected at $31^\circ F$ ? What can you conclude?
 
