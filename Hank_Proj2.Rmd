@@ -40,7 +40,6 @@ Where $\pmb{g}'(\pmb{x}^{(t)})$ is the gradient and $\pmb{g}''(\pmb{x}^{(t)})$ i
 ```{r}
 deriv_g <- deriv3(g~4*x*y+(x+y^2)^2, c('x', 'y'), c('x', 'y'))
 ```
-
 `deriv_g()` is now a function that takes arguments `x` and `y` and will return an object with attributes `gradient` and `hessian`. We demonstrate the use of this function using $(x, y) = (1, 1)$.
 ```{r}
 my_deriv <- deriv_g(x=1, y=1) # test the function deriv_g()
