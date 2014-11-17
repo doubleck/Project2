@@ -68,7 +68,7 @@ $$D(\pmb{x}^{(t+1)}, \pmb{x}^{(t)}) \le \epsilon$$
 
 where $D(\pmb{x}^{(t+1)}, \pmb{x}^{(t)})$ is the distance between the values of $\pmb{x}$ at iteration $t$ and $t+1$. This distance may be computed several ways. We take advantage of the `dist()` function in R to calculate distances for us and we write our code in such a way that the user may easily choose which measure of distance they prefer. We choose the familiar euclidean distance for this problem.
 
-We set $\epsilon=1E-9$, choose inital values $\pmb{x}^{(0)}=(x^{(0)}, y^{(0)})=(1, 1)$ and begin to iterate.
+We set $\epsilon=1E-9$, choose initial values $\pmb{x}^{(0)}=(x^{(0)}, y^{(0)})=(1, 1)$ and begin to iterate.
 ```{r}
 dist_type <- 'euclidean' # see ?dist for other options
 epsilon <- 1E-9 # convergence criterion
@@ -235,7 +235,7 @@ The values that minimize $g(x, y)$ are (0.8888889,-0.6666667), which is identica
 # #### Begin Problem 2 ####
 ```
 
-In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather ($31^\circ F$ or $0^\circ C$) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the dataset challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, $(1\le i \le 24)$.
+In 1986, the space shuttle Challenger exploded during takeoff, killing the seven astronauts aboard. The explosion was the result of an O-ring failure, a splitting of a ring of rubber that seals the parts of the ship together. The accident was believed to have been caused by the unusually cold weather ($31^\circ F$ or $0^\circ C$) at the time of launch, as there is reason to believe that the O-ring failure probabilities increase as temperature decreases. Data on previous space shuttle launches and O-ring failures is given in the data set challenger provided with the "mcsm" package of R. The first column corresponds to the failure indicators $y_i$ and the second column to the corresponding temperature $x_i$, $(1\le i \le 24)$.
 
 ```{r}
 # load challenger data
@@ -244,26 +244,120 @@ data(challenger)
 ```
 
 
-### a) The goal is to obtain MLEs for $\beta_0$ and $\beta_1$ in the following logistic regression model
+### a) The goal is to obtain MLEs for $\beta_0$ and $\beta_1$ in the following logistic regression model: $log \left( \dfrac{p}{1-p} \right) = \beta_0+\beta_1x$, where $p$ is the probability that at least one O-ring is damaged and $x$ is the temperature. Create computer programs using Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
 
-$$log \left( \dfrac{p}{1-p} \right) = \beta_0+\beta_1x$$
+The log-likelihood of the data, given values of $\beta_0$ and $\beta_1$ is given by
 
-where $p$ is the probability that at least one O-ring is damaged and $x$
-is the temperature. Create computer programs using Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
+$$\ell (x|\beta_0, \beta_1)=ln \left( \prod_{i=1}^n \dfrac{e^{\beta_0+\beta_1 x_i}}{1+e^{\beta_0+\beta_1 x_i}}\right)$$
+  $$= \sum_{i=1}^n-ln(1+e^{\beta_0+\beta_1 x_i})+y_i(\beta_0+\beta_1 x_i)$$
 
-The log-likelihood is given by
+The Newton's method update is given by
 
-$$l(\beta) = \pmb{y}^T \pmb{Z \beta}-\pmb{b}^T \pmb{1}$$
+$$(\beta_0^{(t+1)}, \beta_1^{(t+1)})=(\beta_0^{(t)}, \beta_1^{(t)})-\ell''(\beta_0^{(t)}, \beta_1^{(t)})^{-1}\ell'(\beta_0^{(t)}, \beta_1^{(t)})$$,
+
+Where $\ell'(\beta_0^{(t)}, \beta_1^{(t)})$ is the gradient of the log-likelihood and $\ell''(\beta_0^{(t)}, \beta_1^{(t)})$ is the hessian of the log-likelihood evaluated at $(\beta_0^{(t)}, \beta_1^{(t)})$. 
+
+Calculating the gradient and hessian by hand is rather messy, so we use the R function `deriv3()` to take the algebraic derivatives needed. The call to `deriv3()` defines a function that will compute the gradient and Hessian of the log-likelihood for given values of $x_i$, $y_i$, $\beta_0$, and $\beta_1$. 
+```{r}
+my_deriv_func <- deriv3(l~y*log(1/(1+exp(-b0-b1*x)))+(1-y)*log(1/(1+exp(b0+b1*x))), namevec=c('b0', 'b1'), function.arg=c('x', 'y', 'b0', 'b1'))
+```
+
+Note that we do not include the sum operator in the call to `deriv3()` because the function does not handle sums, but the derivative of a sum is equivalent to the sum of the derivative of each term being summed, so we can just evaluate the gradient and hessian at each $(x, y)$ pair and sum the results to find the overall gradient and hessian for a given $\beta_0$, and $\beta_1$.
+
+Since the function `my_deriv_func()` created above will evaluate the gradient and hessian at a single $(x, y)$ pair, I define another function to evaluate the gradient and hessian over all $(x, y)$ pairs in the data set. I employ `mapply()` to "apply" the function over the two vectors `mydat$age` and `mydat$kyphosis` simultaneously ("apply" over $(x, y)$ pairs). A call to `apply()` or `sapply()` will only operate over one vector at a time.
+
+```{r}
+deriv_all <- function(b0, b1, deriv_func){
+  # create gradient and hessian object for each (x, y) pair
+  deriv_list <- mapply(deriv_func, 
+                       x=challenger$temp, y=challenger$oring, 
+                       MoreArgs=list(b0=b0, b1=b1),
+                       SIMPLIFY=FALSE
+                       )
+  # extract all gradient components
+  gradient_list <- lapply(deriv_list, function(g) matrix(attr(g, 'gradient'), nrow=2))
+  # and sum them to get overall gradient at (b0, b1)
+  gradient <- Reduce('+', gradient_list)
+  # extract all hessian components
+  hessian_list <- lapply(deriv_list, function(g) matrix(attr(g, 'hessian'), nrow=2))
+  # and sum them to get overall hessian at (b0, b1)
+  hessian <- Reduce('+', hessian_list)
+  return(list('gradient'=gradient, 'hessian'=hessian))
+  }
+```
+
+Now a simple call to `deriv_all()` will return the gradient and hessian for a given $\beta_0$, and $\beta_1$. To demonstrate, we find the gradient and hessian of the log-likelihood at $(\beta_0, \beta_1) = (0.5, 0)$. 
+```{r}
+deriv_all(b0=0, b1=0, deriv_func=my_deriv_func)
+```
+
+To maximize the log-likelihood of $(\beta_0, \beta_1)$ using the Newton-Raphson algorithm, we define a function to compute the Newton update.
+
+```{r}
+newton_update <- function(b0, b1){
+  # get gradient and hessian
+  my_deriv <- deriv_all(b0=b0, b1=b1, deriv_func=my_deriv_func)
+  # calculate update
+  update <- c(b0, b1) - c(solve(my_deriv$hessian)%*%my_deriv$gradient) 
+  # retun update
+  names(update) <- c('b0', 'b1')
+  return(update)
+}
+```
+
+Finally we define a stopping criteria to terminate the Newton-Raphson iterations when the values of $(\beta_0, \beta_1)$ are close enough to an optimum.
+
+We define the stopping criteria to be
+
+$$D((\beta_0^{(t)}, \beta_1^{(t)}), (\beta_0^{(t+1)}, \beta_1^{(t+1)})) \le \epsilon$$,
+
+where $D((\beta_0^{(t)}, \beta_1^{(t)}), (\beta_0^{(t+1)}, \beta_1^{(t+1)}))$ is the distance in two dimensional space between the values of $(\beta_0, \beta_1)$ at iteration $t$ and $t+1$. We use the euclidean distance, but alternative distance measures may easily be substituted. (see `?dist`)
+
+We set $\epsilon=1E-9$, choose initial values $(\beta_0, \beta_1) = (0.5, 0)$ and begin to iterate.
+```{r, eval=FALSE}
+dist_type <- 'euclidean' # see ?dist for other options
+epsilon <- 1E-9 # convergence criterion
+##x_current <- c('b0'=10, 'b1'=-0.1) # inital values
+x_current <- c('b0'=0, 'b1'=0) # inital values
+x_prev <- c('b0'=Inf, 'b1'=Inf) # no previous values yet!
+counter <- 0 # for counting iterations
+verbose <- TRUE # do you want to get updates?
+
+while(dist(rbind(x_current, x_prev), method=dist_type) > epsilon){
+  counter <- counter+1
+  x_prev <- x_current
+  x_current <- newton_update(b0=x_current['b0'], b1=x_current['b1'])
+  if(verbose==T){
+    msg <- paste0('Iteration ', counter, ': b = (', 
+                  paste(signif(x_current, 5), collapse=', '),
+                  ')')
+    cat(msg)
+    cat('\n')
+    }
+  }
+```
+
+I check the maximum likelihood estimates obtained above with `R`'s estimates, computed using the `glm()` (generalized linear model) function.
+```{r}
+glm_mod <- glm(oring~temp, data=challenger, family=binomial)
+glm_mod$coefficients
+```
+
+### b) Solve the same problem using the "Iterative Reweighted Least Squares" algorithm and the Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
+
+The log-likelihood of $(\beta_0, \beta_1)$ can be formulated using matrix notation as
+
+$$\ell(\beta) = \pmb{y}^T \pmb{Z \beta}-\pmb{b}^T \pmb{1}$$,
 
 where $\pmb{1}$ is a column vector of ones, $\pmb{y} = (y_1...y_n)^T$, $\pmb{b} = (b(\theta_1)...b(\theta_n))^T$, and $\pmb{Z}$ is the $n\, X\, 2$ matrix whose $i$ th row is $[1, x_i]$.
 
-The score function is 
+The gradient is 
 
-$$\pmb{l}'(\pmb{\beta})=\pmb{Z}^T(\pmb{y}-\pmb{\pi})$$
+$$\ell'(\pmb{\beta})=\pmb{Z}^T(\pmb{y}-\pmb{\pi})$$
 
-where $\pmb{\pi}$ is a column vector of the Bernoulli probabilities $\pi_1, ..., \pi_n$. The Hessian is given by 
+where $\pmb{\pi}$ is a column vector of the Bernoulli probabilities $\pi_1, ..., \pi_n$. The Hessian is 
 
-$$\pmb{l}''(\pmb{\beta}) = \dfrac{d}{d \pmb{\beta}}(\pmb{Z}^T(\pmb{y}-\pmb{\pi})) = -\left( \dfrac{d \pmb{\pi}}{d \pmb{\beta}} \right)^T \pmb{Z} = -\pmb{Z}^T\pmb{WZ}$$
+$$\ell''(\pmb{\beta}) = \dfrac{d}{d \pmb{\beta}}(\pmb{Z}^T(\pmb{y}-\pmb{\pi})) = -\left( \dfrac{d \pmb{\pi}}{d \pmb{\beta}} \right)^T \pmb{Z} = -\pmb{Z}^T\pmb{WZ}$$
 
 where $\pmb{W}$ is a diagonal matrix with $i$ th diagonal entry equal to $\pi_i(1-\pi_i)$.
 
@@ -273,15 +367,15 @@ $$\pmb{\beta}^{(t+1)} = \pmb{\beta}^{(t)}-\pmb{l}''(\pmb{\beta}^{(t)})^{-1}\pmb{
 
 where $\pmb{\pi}^{(t)}$ is the value of $\pmb{\pi}$ corresponding to $\pmb{\beta}^{(t)}$, and $\pmb{W}^{(t)}$ is the diagonal weight matrix evaluated at $\pmb{\pi}^{(t)}$.
 
-To find MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$ we designate the vector $\pmb{y}$ to be the response vector in the data and $\pmb{Z}$ to be the $n\, X\, 2$ matrix of ones and temperatures.
+To find MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$ we designate the vector $\pmb{y}$ to be the response vector in the data and $\pmb{Z}$ to be the $n\, X\, 2$ matrix of ones and ages.
 ```{r}
 y <- challenger$oring
-x <- challenger$temp
+x  <- challenger$temp
 Z <- cbind(rep(1, nrow(challenger)), challenger$temp)
 
 ```
 
-$\pmb{Z}$ will remain unchanged, but for each iteration we will need to compute the predicted probabilities $\pi_1, ...\pi_n$ using the current values of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will also need to compute for each iteration $\pmb{W}$, the diagonal matrix with diagonal entry $i$ equal to $\pi_i(1-\pi_1)$. Below, we define a function to do each of these computations.
+$\pmb{Z}$ will remain unchanged, but for each iteration we will need to recompute the predicted probabilities $\pi_1, ...\pi_n$ using the current values of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will also need to compute at each iteration $\pmb{W}$, the diagonal matrix with diagonal entry $i$ equal to $\pi_i(1-\pi_i)$. Below, we define a function to do each of these computations.
 ```{r}
 find_pis <- function(beta, x){
   # beta a vector of parameter estimates, x a vector of independent variable observations
@@ -295,7 +389,7 @@ find_W <- function(pis){
 }
 ```
 
-Next we difine a function to calculate Newton's update using $\pmb{Z}$, $\pmb{y}$, $\pmb{\beta}$, and the $\pi s$ and $\pmb{W}$ calculated using the functions above.
+Next we define a function to calculate Newton's update using $\pmb{Z}$, $\pmb{y}$, $\pmb{\beta}$, and the $\pi s$ and $\pmb{W}$ calculated using the functions above.
 ```{r}
 find_update <- function(beta, Z, W, y, pis){
   numerator <- t(Z)%*%(y-t(pis))
@@ -305,9 +399,9 @@ find_update <- function(beta, Z, W, y, pis){
 }
 ```
 
-Finally, we must define a stopping criterion so that the algorithm ceases to update at some point and returns to us values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will stop updating our estimates when an iteration takes place that does not change them. We are not concerned with accuracy at more than seven decimal places, but we will write the program so that this may be changed.
+Finally, we must define a stopping criterion so that the algorithm ceases to update at some point and returns values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We will stop updating the existing estimates when an iteration takes place that does not change them. We are not concerned with accuracy at more than seven decimal places, so we round the estimates at each iteration to seven decimal places and check at each iteration to see if the updated estimates are different from the previous iteration. This is equivalent to the convergence criteria $D(\pmb{\beta}^{(t+1)}, \pmb{\beta}^{(t)}) < 5E-7$.
 
-We choose startting values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$ to be $[0, 0]$, as is reccomended in the textbook. Then we begin a while loop to update these estimates until convergence occurs.
+We choose starting values for $\widehat{\beta}_0$ and $\widehat{\beta}_1$ to be $(0, 0)$. Then we begin a while loop to update these estimates until convergence occurs.
 ```{r}
 beta <- c(0, 0)
 old_beta <- c(NA, NA)
@@ -334,81 +428,15 @@ while(!identical(beta, old_beta)){
 }
 ```
 
-Now that the while loop has terminated, the current values of `beta` should be the MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. We check these against the estimates given using the `glm()` function in R.
+Now that the while loop has terminated, the current values of `beta` should be the MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$. I check these against the estimates given using the `glm()` function in R.
 ```{r}
 # see our estimates
 print(beta)
 # see the glm estimates
-glm(y~x, family=binomial)$coefficients
+glm(oring~temp, data=challenger, family=binomial)$coefficients
 ```
 
 Our estimates match those produced by the `glm()` function, so we are confident that we have correctly found the MLEs of $\widehat{\beta}_0$ and $\widehat{\beta}_1$.
-
-### b) Solve the same problem using the "Iterative Reweighted Least Squares" algorithm and the Newton-Raphson algorithm to find MLEs of $\widehat{\beta}_0, \widehat{\beta}_1$
-
-If we let 
-
-$$\pmb{e}^{(t)} = \pmb{y}-\pmb{\pi}^{(t)}$$
-
-and
-
-$$\pmb{x}^{(t)} = \pmb{Z\beta}^{(t)} + (\pmb{W}^{(t)})^{-1}\pmb{e}^{(t)}$$
-
-then the Fisher scoring update can be written as 
-
-$$\pmb{\beta}^{(t+1)} = \pmb{\beta}+\left( \pmb{Z}^T\pmb{W}^{(t)}\pmb{Z} \right)^{-1} \pmb{Z}^T\pmb{e}^{(t)}$$
-$$ = \left( \pmb{Z}^T\pmb{W}^{(t)}\pmb{Z}\right)^{-1}\pmb{Z}^T\pmb{W}^{(t)}\pmb{x}^{(t)}$$
-
-where $\pmb{x}^{(t)}$ is the *working response* that gets updated with eac iteration.
-
-If we reuse the functions defined earlier to calculate $\pmb{\pi}$ and $\pmb{W}$, we just need to define a function for calculating $\pmb{x}$ and define a new function for updating using the iteratively reweighted least squares update before we begin to iterate. We define a function for calculating $\pmb{x}$ as follows:
-```{r}
-find_x <- function(y, beta, pis, Z, W){
-  e_t <- y-c(pis)
-  x <- Z%*%beta+solve(W)%*%e_t
-  return(x)
-}
-```
-
-And a new updating function:
-```{r}
-find_update_irls <- function(Z, W, working_response){
-  numerator <- t(Z)%*%W%*%working_response
-  denominator <- t(Z)%*%W%*%Z
-  update <- solve(denominator)%*%numerator
-  return(update)
-}
-```
-
-Next we choose $(0, \, 0)$ for the initial values of $\pmb{\beta}$ and begin another while loop, this time updating using the iteratively reweighted least squares update. (We are still satisfied with 7 decimal places of accuracy.)
-```{r}
-beta <- c(0, 0)
-old_beta <- c(NA, NA)
-counter <- 0
-decimal_places_of_precision <- 7
-verbose <- TRUE
-
-while(!identical(beta, old_beta)){
-  pis <- find_pis(beta, x)
-  W <- find_W(pis)
-  working_response <- find_x(y, beta, pis, Z, W)
-  # set old beta equal to current beta before updating
-  old_beta <- beta
-  # replace beta with updated estimates
-  beta <- find_update_irls(Z, W, working_response)
-  # round to the number of decimal places desired
-  beta <- round(c(beta), decimal_places_of_precision)
-  counter <- counter+1
-  # show us the current value of beta if "verbose" is TRUE
-  if(verbose==T){
-    msg <- paste0('Iteration ', counter, ': Beta = (', beta[1], ', ', beta[2], ')')
-  cat(msg)
-  cat('\n')
-  }
-}
-```
-
-We arrive at the same MLEs as before, in the same number of iterations as before.
 
 ### c) We are also interested in predicting O-ring failure. Challenger was launched at $31^\circ F$. What is the predicted probability of O-ring damage at $31^\circ F$ ? How many O-ring failures should be expected at $31^\circ F$ ? What can you conclude?
 
@@ -460,12 +488,12 @@ set.seed(8675309) # set random seed (is it bad that I always use 867-5309?)
 seg_assignments <- sample(seg_assignments) # randomly permute segment assignments
 ```
 
-For each value of $k$, $\lambda_1$, and $\lambda_2$ we want to asses the accuracy of the model somehow. We will use as our critereon the cross-validation error 
+For each value of $k$, $\lambda_1$, and $\lambda_2$ we want to asses the accuracy of the model somehow. We will use as our criterion the cross-validation error 
 $$CV_k(\lambda_1, \lambda_2) = \dfrac{1}{n_k}\sum\limits_{i \in F_k}(y_i-\widehat{f}_{(\lambda_1, \lambda_2)}^{-k}(x_i))^2$$
 
 where $n_k$ is the fold size, $F_k$ is the set of observation in fold $k$ (the test set), and $\widehat{f}_{(\lambda_1, \lambda_2)}^{-k}(x)$ is the prediction function from the model fit to all observations *not* in $F_k$ using parameters $(\lambda_1, \lambda_2)$.
 
-Next, we must cunduct a grid search across many possible values of $\lambda_1$ and $\lambda_2$. The `glmnet()` function in the `glmnet` package takes as arguments `alpha` and `lambda`, where what we are calling $\lambda_1$ is given by $\alpha \lambda$ and what we are calling $\lambda_2$ is given by $(1-\alpha)\lambda$, so we actually want to grid search over possible values of `lambda` and `alpha` being passed to the `glmnet()` function. It is important to note that using this parameterization $\lambda$ is constrained to be larger than 0 and $\alpha$ is constrained to be between 0 and 1.
+Next, we must conduct a grid search across many possible values of $\lambda_1$ and $\lambda_2$. The `glmnet()` function in the `glmnet` package takes as arguments `alpha` and `lambda`, where what we are calling $\lambda_1$ is given by $\alpha \lambda$ and what we are calling $\lambda_2$ is given by $(1-\alpha)\lambda$, so we actually want to grid search over possible values of `lambda` and `alpha` being passed to the `glmnet()` function. It is important to note that using this parameterization $\lambda$ is constrained to be larger than 0 and $\alpha$ is constrained to be between 0 and 1.
 
 A brief look at the documentation for the `glmnet()` function (see `?glmnet`) reveals that the argument `alpha` takes a scalar value, but the argument `lambda` may take a vector of many $\lambda$ values to try. The documentation states
 
@@ -473,7 +501,7 @@ A brief look at the documentation for the `glmnet()` function (see `?glmnet`) re
      lambda values. glmnet relies on its warms starts for speed, and its often faster to fit 
      a whole path than compute a single fit.
 
-So for the sake of speed we will create a vector of (decreasing) `lambda` values to pass to the `glmnet()` function with each call and repeat this for several values of `alpha`, supplied in seperate calls. We will do this for each of our k (10) folds, computing the validation errors, $CV_k(\alpha, \lambda)$, as we go.
+So for the sake of speed we will create a vector of (decreasing) `lambda` values to pass to the `glmnet()` function with each call and repeat this for several values of `alpha`, supplied in separate calls. We will do this for each of our k (10) folds, computing the validation errors, $CV_k(\alpha, \lambda)$, as we go.
 
 Since we will pass many `lambda` values to `glmnet()` at a time, but only one `alpha` value at a time to the function, it will simplify things to define a function to extract the validation error, $CV_k(\alpha, \lambda)$, for all of the `lambda`s supplied with one call to the `glmnet()` function.
 
@@ -526,7 +554,7 @@ for(i in 1:k){ # k validation folds
 }
 ```
 
-The object `results` is now a list with k elements and each element is a `data.frame` with fields `k`, `alpha`, `lambda`, and `MSE`. We combine these homogenous list elements into one `data.frame` and find the average MSE for each set of `alpha` and `lambda` values (averaging the k MSE values calculated for each pair).
+The object `results` is now a list with k elements and each element is a `data.frame` with fields `k`, `alpha`, `lambda`, and `MSE`. We combine these homogeneous list elements into one `data.frame` and find the average MSE for each set of `alpha` and `lambda` values (averaging the k MSE values calculated for each pair).
 ```{r, cache=TRUE}
 # average the MSEs from all k folds
 results_all <- Reduce(rbind, results)
