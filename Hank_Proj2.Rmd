@@ -3,7 +3,8 @@ title: "STA6106 Statistic Computing Project2"
 author: "Robert Norberg, Jung-Han Wang"
 date: "Wednesday, October 29, 2014"
 output:
-  pdf_document: default
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r ChunkSettings, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
@@ -287,7 +288,7 @@ deriv_all <- function(b0, b1, deriv_func){
 
 Now a simple call to `deriv_all()` will return the gradient and hessian for a given $\beta_0$, and $\beta_1$. To demonstrate, we find the gradient and hessian of the log-likelihood at $(\beta_0, \beta_1) = (0.5, 0)$. 
 ```{r}
-deriv_all(b0=0, b1=0, deriv_func=my_deriv_func)
+deriv_all(b0=0.5, b1=0, deriv_func=my_deriv_func)
 ```
 
 To maximize the log-likelihood of $(\beta_0, \beta_1)$ using the Newton-Raphson algorithm, we define a function to compute the Newton update.
@@ -312,11 +313,11 @@ $$D((\beta_0^{(t)}, \beta_1^{(t)}), (\beta_0^{(t+1)}, \beta_1^{(t+1)})) \le \eps
 
 where $D((\beta_0^{(t)}, \beta_1^{(t)}), (\beta_0^{(t+1)}, \beta_1^{(t+1)}))$ is the distance in two dimensional space between the values of $(\beta_0, \beta_1)$ at iteration $t$ and $t+1$. We use the euclidean distance, but alternative distance measures may easily be substituted. (see `?dist`)
 
-We set $\epsilon=1E-9$, choose initial values $(\beta_0, \beta_1) = (0.5, 0)$ and begin to iterate.
-```{r, eval=FALSE}
+We set $\epsilon=1E-9$, choose initial values $(\beta_0, \beta_1) = (0, 0)$ and begin to iterate.
+```{r, }
 dist_type <- 'euclidean' # see ?dist for other options
 epsilon <- 1E-9 # convergence criterion
-##x_current <- c('b0'=10, 'b1'=-0.1) # inital values
+##x_current <- c('b0'=0, 'b1'=0) # inital values
 x_current <- c('b0'=0, 'b1'=0) # inital values
 x_prev <- c('b0'=Inf, 'b1'=Inf) # no previous values yet!
 counter <- 0 # for counting iterations
