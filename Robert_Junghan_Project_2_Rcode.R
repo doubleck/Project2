@@ -96,7 +96,6 @@ line.search <- function(f, x, gradf, tol = 1e-9, a.max = 100) {
   g <- function(a) return(f(x - a*gradf))
   # find a.l < a.m < a.r such that
   # g(a.m) >=g(a.l) and g(a.m) >= g(a.r)
-
   # a.l
   a.l <- 0
   g.l <- g(a.l)
@@ -144,6 +143,55 @@ descent(f,gradf,c(1,0) )
 # load challenger data
 library(mcsm)
 data(challenger)
+my_deriv_func <- deriv3(l~y*log(1/(1+exp(-b0-b1*x)))+(1-y)*log(1/(1+exp(b0+b1*x))), namevec=c('b0', 'b1'), function.arg=c('x', 'y', 'b0', 'b1'))
+deriv_all <- function(b0, b1, deriv_func){
+  # create gradient and hessian object for each (x, y) pair
+  deriv_list <- mapply(deriv_func,
+                       x=challenger$temp, y=challenger$oring,
+                       MoreArgs=list(b0=b0, b1=b1),
+                       SIMPLIFY=FALSE
+  )
+  # extract all gradient components
+  gradient_list <- lapply(deriv_list, function(g) matrix(attr(g, 'gradient'), nrow=2))
+  # and sum them to get overall gradient at (b0, b1)
+  gradient <- Reduce('+', gradient_list)
+  # extract all hessian components
+  hessian_list <- lapply(deriv_list, function(g) matrix(attr(g, 'hessian'), nrow=2))
+  # and sum them to get overall hessian at (b0, b1)
+  hessian <- Reduce('+', hessian_list)
+  return(list('gradient'=gradient, 'hessian'=hessian))
+}
+deriv_all(b0=0.5, b1=0, deriv_func=my_deriv_func)
+newton_update <- function(b0, b1){
+  # get gradient and hessian
+  my_deriv <- deriv_all(b0=b0, b1=b1, deriv_func=my_deriv_func)
+  # calculate update
+  update <- c(b0, b1) - c(solve(my_deriv$hessian)%*%my_deriv$gradient)
+  # retun update
+  names(update) <- c('b0', 'b1')
+  return(update)
+}
+dist_type <- 'euclidean' # see ?dist for other options
+epsilon <- 1E-9 # convergence criterion
+##x_current <- c('b0'=0, 'b1'=0) # inital values
+x_current <- c('b0'=0, 'b1'=0) # inital values
+x_prev <- c('b0'=Inf, 'b1'=Inf) # no previous values yet!
+counter <- 0 # for counting iterations
+verbose <- TRUE # do you want to get updates?
+while(dist(rbind(x_current, x_prev), method=dist_type) > epsilon){
+  counter <- counter+1
+  x_prev <- x_current
+  x_current <- newton_update(b0=x_current['b0'], b1=x_current['b1'])
+  if(verbose==T){
+    msg <- paste0('Iteration ', counter, ': b = (',
+                  paste(signif(x_current, 5), collapse=', '),
+                  ')')
+    cat(msg)
+    cat('\n')
+  }
+}
+glm_mod <- glm(oring~temp, data=challenger, family=binomial)
+glm_mod$coefficients
 y <- challenger$oring
 x <- challenger$temp
 Z <- cbind(rep(1, nrow(challenger)), challenger$temp)
@@ -187,41 +235,7 @@ while(!identical(beta, old_beta)){
 # see our estimates
 print(beta)
 # see the glm estimates
-glm(y~x, family=binomial)$coefficients
-find_x <- function(y, beta, pis, Z, W){
-  e_t <- y-c(pis)
-  x <- Z%*%beta+solve(W)%*%e_t
-  return(x)
-}
-find_update_irls <- function(Z, W, working_response){
-  numerator <- t(Z)%*%W%*%working_response
-  denominator <- t(Z)%*%W%*%Z
-  update <- solve(denominator)%*%numerator
-  return(update)
-}
-beta <- c(0, 0)
-old_beta <- c(NA, NA)
-counter <- 0
-decimal_places_of_precision <- 7
-verbose <- TRUE
-while(!identical(beta, old_beta)){
-  pis <- find_pis(beta, x)
-  W <- find_W(pis)
-  working_response <- find_x(y, beta, pis, Z, W)
-  # set old beta equal to current beta before updating
-  old_beta <- beta
-  # replace beta with updated estimates
-  beta <- find_update_irls(Z, W, working_response)
-  # round to the number of decimal places desired
-  beta <- round(c(beta), decimal_places_of_precision)
-  counter <- counter+1
-  # show us the current value of beta if "verbose" is TRUE
-  if(verbose==T){
-    msg <- paste0('Iteration ', counter, ': Beta = (', beta[1], ', ', beta[2], ')')
-    cat(msg)
-    cat('\n')
-  }
-}
+glm(oring~temp, data=challenger, family=binomial)$coefficients
 # #### Begin Problem 3 ####
 myfile <- getURL("http://www-bcf.usc.edu/~gareth/ISL/Credit.csv") # grab the content of this page
 credit <- read.csv(textConnection(myfile), header=T) # read the page content as a .csv
@@ -299,8 +313,7 @@ ggplot(results_agg, aes(x=alpha, y=lambda, z=MSE))+
   geom_tile(aes(fill=MSE))+
   stat_contour(bins=12)+
   geom_point(data=bestMSE, color='red', size=3)+
-  
-geom_text(data=bestMSE, aes(label=paste0('(', alpha, ', ', lambda, ')')), color='white', vjust=-1)+
+  geom_text(data=bestMSE, aes(label=paste0('(', alpha, ', ', lambda, ')')), color='white', vjust=-1)+
   geom_tile(data=candidate_lambdas, aes(fill=NULL, z=NULL), fill='white', alpha=0.5)+
   theme_bw(base_size=10)
 # define data matrix
