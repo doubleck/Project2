@@ -25,7 +25,7 @@ my_matrix <- as.matrix(mydat)
 
 This problem is to get some codes to perform the support vector data description (SVDD)
 
-a. Write an _R_ function to perform the SVDD.
+a. Write an `R` function to perform the SVDD.
 
 First, we want to compute the kernel matrix
 
@@ -186,29 +186,28 @@ test_alphas <- SVDD(my_matrix, my_kernel)
 ```
 
 
-b. Write an _R_ function to perform the prediction of a new observation using SVDD.
+b. Write an `R` function to perform the prediction of a new observation using SVDD.
 ```{r}
 
 ```
 
-c. Write an _R_ function for detecting potential outliers for a new set of observations, along with the upper threshold.
+c. Write an `R` function for detecting potential outliers for a new set of observations, along with the upper threshold.
 ```{r}
 
 ```
-
 
 # Problem 2
 
 The goal of problem 2 is to perform the support vector data description (SVDD) using the Mahalanobis kernel function. We will simplify the problem
 by using the identity function for g.
 
-(a) Write an _R_ function to compute the Mahalanobis kernel distance $\pmb{d_g(x)}$
+(a) Write an `R` function to compute the Mahalanobis kernel distance $\pmb{d_g(x)}$
 
-(b) Write an _R_ function to perform the Mahalanobis kernel SVDD.
+(b) Write an `R` function to perform the Mahalanobis kernel SVDD.
 
-(c) Write an _R_ function to perform the prediction of a new observation using the Mahalanobis kernel SVDD.
+(c) Write an `R` function to perform the prediction of a new observation using the Mahalanobis kernel SVDD.
 
-(d) Write an _R_ function for detecting potential outliers for a new set of observations, along with the upper threshold.
+(d) Write an `R` function for detecting potential outliers for a new set of observations, along with the upper threshold.
 
 
 ```{r}
