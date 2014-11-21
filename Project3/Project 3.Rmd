@@ -5,23 +5,195 @@ date: "Monday, November 17, 2014"
 output: pdf_document
 ---
 
+```{r ChunkSettings, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+# Clear working environment
+rm(list=ls())
+library(ggplot2) # for plots
+library(kernlab)
+
+# Options for document compilation
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, comment=NA, fig.width=4, fig.height=3)
+```
+
 ## Project 3
 
 # Problem 1
+```{r}
+mydat <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/training dataset.txt')
+my_matrix <- as.matrix(mydat)
+```
 
 This problem is to get some codes to perform the support vector data description (SVDD)
 
 a. Write an _R_ function to perform the SVDD.
-```{r}
 
+First, we want to compute the kernel matrix
+
+$$\left[ \begin{array}{cccc}
+k(x_1, x_1) & k(x_1, x_2) & ... & k(x_1, x_n) \\
+k(x_2, x_1) & k(x_2, x_2) & ... & k(x_2, x_n) \\
+... & ... & ... & ... \\
+k(x_n, x_1) & k(x_n, x_2) & ... & k(x_n, x_n) \end{array} \right]$$
+
+To do this, we must define a kernel function. This function essentially calculates the distance between each pair of data vectors. For simplicity, we begin by using the simplest distance, the euclidean distance. The euclidean distance between two data vectors is just their dot product. The `kernlab` package includes a function `vanilladot()` that when called, creates another function that will compute these dot products.
+```{r}
+my_kernel <- vanilladot()
 ```
+
+We have now created a function `my_kernel()` that will calculate the linear distance between two data vectors for us. We check that this is equivalent to the dot product.
+```{r}
+my_kernel(my_matrix[1, ], my_matrix[2, ]) # dot prod using kernel function
+crossprod(my_matrix[1, ], my_matrix[2, ]) # dot prod using base R function
+my_matrix[1, ] %*% my_matrix[2, ] # old school matrix multiplication operator
+```
+
+Now that we have defined a function for applying our kernel function to a pair of data vectors, we can easily create a kernel matrix from our data matrix. There is a handy function in the `kernlab` package called `kernelMatrix()` that does exactly this. It requires as arguments `kernel`, the kernel function to be used, and `x`, the data matrix from which to compute the kernel matrix. We pass the function our kernel function `my_kernel()` and our data matrix `my_matrix`. The function returns a $nxn$ (66x66) matrix of class `kernelMatrix`.
+
+```{r}
+H <- kernelMatrix(kernel=my_kernel, x=my_matrix)
+dim(H)
+class(H)
+```
+
+The SVDD problem can be stated mathematically as
+
+$$\underset{\alpha}{max}\sum_{i} \alpha_i \; k(x_i, x_i) - \sum_{i, j} \alpha_i \alpha_j \; k(x_i, x_j)$$
+
+subject to $\alpha_i \ge 0$ and $\sum \alpha_i = 1$.
+
+The quadratic solver in the `kernlab` package solves quadratic programming problems in the form
+
+$$min(c'x+\dfrac{1}{2}x'Hx)$$
+
+subject to $b\le Ax \le b+r$ and $l \le x \le u$.
+
+To re-state the SVDD problem in the form required by the quadratic solver we set 
+
+$$x' = [\alpha_1, \alpha_2, ..., \alpha_n]$$
+
+$$H = \left[ \begin{array}{cccc}
+k(x_1, x_1) & k(x_1, x_2) & ... & k(x_1, x_n) \\
+k(x_2, x_1) & k(x_2, x_2) & ... & k(x_2, x_n) \\
+... & ... & ... & ... \\
+k(x_n, x_1) & k(x_n, x_2) & ... & k(x_n, x_n) \end{array} \right]$$
+
+$$c' = [k(x_1, x_1), k(x_2, x_2), ..., k(x_n, x_n)] = diag(H)$$
+
+then
+
+$$c'x + \dfrac{1}{2} x'Hx = [k(x_1, x_1), ..., k(x_n, x_n)] \left[ \begin{array}{c}
+\alpha_1 \\
+\alpha_2 \\
+... \\
+\alpha_n \end{array} \right] 
++ \dfrac{1}{2}(2) [\alpha_1, ..., \alpha_n] 
+\left[ \begin{array}{cccc}
+k(x_1, x_1) & k(x_1, x_2) & ... & k(x_1, x_n) \\
+k(x_2, x_1) & k(x_2, x_2) & ... & k(x_2, x_n) \\
+... & ... & ... & ... \\
+k(x_n, x_1) & k(x_n, x_2) & ... & k(x_n, x_n) \end{array} \right] 
+\left[ \begin{array}{c}
+\alpha_1 \\
+\alpha_2 \\
+... \\
+\alpha_n \end{array} \right]$$
+
+To re-state the constraints of the SVDD problem in the form required by the quadratic solver, we set 
+
+$$b = 1, \: A = [1, 1, ..., 1], \: x = \left[ \begin{array}{c}
+\alpha_1 \\
+\alpha_2 \\
+... \\
+\alpha_n \end{array} \right], \: r=0$$
+
+$$l = \left[ \begin{array}{c}
+0 \\
+0 \\
+... \\
+0 \end{array} \right], 
+x = \left[ \begin{array}{c}
+\alpha_1 \\
+\alpha_2 \\
+... \\
+\alpha_n \end{array} \right], 
+u = \left[ \begin{array}{c}
+\infty \\
+\infty \\
+... \\
+\infty \end{array} \right]$$
+
+then $b\le Ax \le b+r$ is equivalent to 
+
+$$1 \le [1, 1, ..., 1]
+\left[ \begin{array}{c}
+\alpha_1 \\
+\alpha_2 \\
+... \\
+\alpha_n \end{array} \right]
+\le 1+0$$
+
+or 
+
+$$1 \le \sum \alpha_i \le 1$$
+
+and $l \le x \le u$ is equivalent to $0 \le \alpha_i \le \infty$.
+
+Using the re-formulation of the problem, we pass the appropriate objects to the `ipop()` quadratic programming solver included in the `kernlab` package. this returns the vector of $\alpha$'s that minimize the stated problem $min(c'x+\dfrac{1}{2}x'Hx)$.
+
+```{r}
+my_c <- (-1)*diag(H)
+my_H <- (2)*H
+my_A <- rep(1, nrow(my_matrix))
+my_b <- 1
+my_l <- rep(0, nrow(my_matrix))
+my_u <- rep(1, nrow(my_matrix))
+my_r <- 0
+my_solution <- ipop(c=my_c, H=my_H, A=my_A, b=my_b, l=my_l, u=my_u, r=my_r, maxiter=300, margin=0.001)
+my_alphas <- my_solution@primal
+```
+
+We check to make sure our $\alpha_i$'s sum to one,
+```{r}
+sum(my_alphas)
+```
+
+We believe we have found a solution to the SVDD problem, so we wrap the commands shown above into a function that takes as input a data matrix `x` and a kernel function `k`.
+```{r}
+SVDD <- function(x, k){
+  H <- kernelMatrix(kernel=k, x=x)
+  fun_H <- (2)*H
+  fun_c <- (-1)*diag(H)
+  fun_A <- rep(1, nrow(my_matrix))
+  fun_b <- 1
+  fun_l <- rep(0, nrow(my_matrix))
+  fun_u <- rep(1, nrow(my_matrix))
+  fun_r <- 0
+  fun_solution <- ipop(c=fun_c, H=fun_H, A=fun_A, b=fun_b, l=fun_l, u=fun_u, r=fun_r, maxiter=300, margin=0.001)
+  
+  alphas <- fun_solution@primal
+  # catch errors
+  if(sigif(sum(alphas), 7) != 1){
+    stop("An error has occurred! The soultion values do not sum to one.")
+    }
+  if(any(signif(alphas, 7) < 0)){
+    stop("An error has occurred! The solution values include at least one negative value, which is not allowed.")
+    }
+  
+  return(alphas)
+  }
+
+test_alphas <- SVDD(my_matrix, my_kernel)
+```
+
 
 b. Write an _R_ function to perform the prediction of a new observation using SVDD.
 ```{r}
+
 ```
 
-c. Write an _R_ function for detecting potential outliers for a new set of oservations, along with the upper threshold.
+c. Write an _R_ function for detecting potential outliers for a new set of observations, along with the upper threshold.
 ```{r}
+
 ```
 
 
@@ -36,10 +208,10 @@ by using the identity function for g.
 
 (c) Write an _R_ function to perform the prediction of a new observation using the Mahalanobis kernel SVDD.
 
-(d) Write an _R_ function for detecting potential outliers for a new set of oservations, along with the upper threshold.
+(d) Write an _R_ function for detecting potential outliers for a new set of observations, along with the upper threshold.
 
 
-```{r,}
+```{r}
 
 ```
 
