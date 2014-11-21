@@ -1,0 +1,46 @@
+---
+title: "Project3"
+author: "Jung-Han Wang"
+date: "Monday, November 17, 2014"
+output: pdf_document
+---
+
+## Project 3
+
+# Problem 1
+
+This problem is to get some codes to perform the support vector data description (SVDD)
+
+a. Write an _R_ function to perform the SVDD.
+```{r}
+
+```
+
+b. Write an _R_ function to perform the prediction of a new observation using SVDD.
+```{r}
+```
+
+c. Write an _R_ function for detecting potential outliers for a new set of oservations, along with the upper threshold.
+```{r}
+```
+
+
+# Problem 2
+
+The goal of problem 2 is to perform the support vector data description (SVDD) using the Mahalanobis kernel function. We will simplify the problem
+by using the identity function for g.
+
+(a) Write an _R_ function to compute the Mahalanobis kernel distance $\pmb{d_g(x)}$
+
+(b) Write an _R_ function to perform the Mahalanobis kernel SVDD.
+
+(c) Write an _R_ function to perform the prediction of a new observation using the Mahalanobis kernel SVDD.
+
+(d) Write an _R_ function for detecting potential outliers for a new set of oservations, along with the upper threshold.
+
+
+```{r,}
+
+```
+
+
