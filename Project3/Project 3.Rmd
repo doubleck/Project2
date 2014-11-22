@@ -149,7 +149,7 @@ my_l <- rep(0, nrow(my_matrix))
 my_u <- rep(1, nrow(my_matrix))
 my_r <- 0
 my_solution <- ipop(c=my_c, H=my_H, A=my_A, b=my_b, l=my_l, u=my_u, r=my_r, maxiter=300, margin=0.001)
-my_alphas <- my_solution@primal
+my_alphas <- my_solution@primal # use @ symbol to access s4 slot
 ```
 
 We check to make sure our $\alpha_i$'s sum to one,
@@ -161,16 +161,19 @@ We believe we have found a solution to the SVDD problem, so we wrap the commands
 ```{r}
 SVDD <- function(x, k){
   H <- kernelMatrix(kernel=k, x=x)
-  fun_H <- (2)*H
-  fun_c <- (-1)*diag(H)
-  fun_A <- rep(1, nrow(my_matrix))
-  fun_b <- 1
-  fun_l <- rep(0, nrow(my_matrix))
-  fun_u <- rep(1, nrow(my_matrix))
-  fun_r <- 0
-  fun_solution <- ipop(c=fun_c, H=fun_H, A=fun_A, b=fun_b, l=fun_l, u=fun_u, r=fun_r, maxiter=300, margin=0.001)
+  n <- nrow(x)
+  solution <- ipop(c=(-1)*diag(H), 
+                   H=2*H, 
+                   A=rep(1, n), 
+                   b=1, 
+                   l=rep(0, n), 
+                   u=rep(1, n), 
+                   r=0, 
+                   maxiter=300, 
+                   margin=0.001)
   
-  alphas <- fun_solution@primal
+  alphas <- solution@primal
+  
   # catch errors
   if(sigif(sum(alphas), 7) != 1){
     stop("An error has occurred! The soultion values do not sum to one.")
@@ -183,8 +186,8 @@ SVDD <- function(x, k){
   }
 
 test_alphas <- SVDD(my_matrix, my_kernel)
+ggplot(mydat, aes(x=))
 ```
-
 
 b. Write an `R` function to perform the prediction of a new observation using SVDD.
 ```{r}
@@ -201,13 +204,13 @@ c. Write an `R` function for detecting potential outliers for a new set of obser
 The goal of problem 2 is to perform the support vector data description (SVDD) using the Mahalanobis kernel function. We will simplify the problem
 by using the identity function for g.
 
-(a) Write an `R` function to compute the Mahalanobis kernel distance $\pmb{d_g(x)}$
+a. Write an `R` function to compute the Mahalanobis kernel distance $\pmb{d_g(x)}$
 
-(b) Write an `R` function to perform the Mahalanobis kernel SVDD.
+b. Write an `R` function to perform the Mahalanobis kernel SVDD.
 
-(c) Write an `R` function to perform the prediction of a new observation using the Mahalanobis kernel SVDD.
+c. Write an `R` function to perform the prediction of a new observation using the Mahalanobis kernel SVDD.
 
-(d) Write an `R` function for detecting potential outliers for a new set of observations, along with the upper threshold.
+d. Write an `R` function for detecting potential outliers for a new set of observations, along with the upper threshold.
 
 
 ```{r}
