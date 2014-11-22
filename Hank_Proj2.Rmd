@@ -259,7 +259,8 @@ Where $\ell'(\beta_0^{(t)}, \beta_1^{(t)})$ is the gradient of the log-likelihoo
 
 Calculating the gradient and hessian by hand is rather messy, so we use the R function `deriv3()` to take the algebraic derivatives needed. The call to `deriv3()` defines a function that will compute the gradient and Hessian of the log-likelihood for given values of $x_i$, $y_i$, $\beta_0$, and $\beta_1$. 
 ```{r}
-my_deriv_func <- deriv3(l~y*log(1/(1+exp(-b0-b1*x)))+(1-y)*log(1/(1+exp(b0+b1*x))), namevec=c('b0', 'b1'), function.arg=c('x', 'y', 'b0', 'b1'))
+my_deriv_func <- deriv3(l~y*log(1/(1+exp(-b0-b1*x)))+(1-y)*log(1/(1+exp(b0+b1*x))), 
+namevec=c('b0', 'b1'), function.arg=c('x', 'y', 'b0', 'b1'))
 ```
 
 Note that we do not include the sum operator in the call to `deriv3()` because the function does not handle sums, but the derivative of a sum is equivalent to the sum of the derivative of each term being summed, so we can just evaluate the gradient and hessian at each $(x, y)$ pair and sum the results to find the overall gradient and hessian for a given $\beta_0$, and $\beta_1$.

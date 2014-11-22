@@ -1,18 +1,36 @@
 ---
 title: "Project3"
-author: "Jung-Han Wang"
-date: "Monday, November 17, 2014"
+author: "Robert Norberg, Jung-Han Wang"
+date: "Monday, November 20, 2014"
 output: pdf_document
 ---
+```{r,echo=FALSE}
+# Clear working environment
+rm(list=ls())
 
+## Load Package
+library(quadprog)
+```
 ## Project 3
 
 # Problem 1
 
 This problem is to get some codes to perform the support vector data description (SVDD)
+```{r}
+```
+
 
 a. Write an _R_ function to perform the SVDD.
+
+Read data training dataset in environment.
 ```{r}
+##Load Data Wang's Path
+setwd("E:/Cloud Storage/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/
+      Statistical Computing/Project 2/Project2/Project3")
+##Load Data Your Path
+setwd("")
+
+train<-read.table("training dataset.txt")
 
 ```
 
@@ -41,6 +59,12 @@ by using the identity function for g.
 
 ```{r,}
 
+```
+
+
+## Appendix with R code
+
+```{r all-code, ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE, tidy.opts=list(keep.blank.line=T)}
 ```
 
 
