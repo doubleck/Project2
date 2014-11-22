@@ -330,7 +330,7 @@ lf12<-D(D(expression(-log(1+(exp(b0+mX*b1)))+vY*(b0+mX*b1)),'b0'),'b1');lf12
 
 
 lf3 <- function(beta,mX,vY) {
-f <- -log(1)+(exp(beta[1]+mX*beta[2]))+vY*(beta[1]+mX*beta[2])
+f <- -log(1+(exp(beta[1]+mX*beta[2])))+vY*(beta[1]+mX*beta[2])
 ##Calculate First Derivative of Function to x[1]  (f1)
 f1<- vY - exp(beta[1] + mX * beta[2])/(1 + (exp(beta[1] + mX * beta[2])))
 ##Calculate Second Derivative of Function to x[1] (f11)
@@ -362,24 +362,35 @@ vY<-y
 beta <- beta0  ## Set initial value
 lf3.beta <- lf3(beta,mX,vY) ## Set Input Function
 n <- 0 ## Set first turn n<-0
-while ((max(abs(lf3.beta[[2]])) > tol) & (n < n.max)) { ##Set Convergence Criteria. If f'(x) greater than tol(tolerance) go to n+1.
+t <- max(abs(lf3.beta[[2]]))
+while ((t > tol) & (n < n.max)) { ##Set Convergence Criteria. If f'(x) greater than tol(tolerance) go to n+1.
+r<-solve(lf3.beta[[3]], lf3.beta[[2]])
 beta <- beta - solve(lf3.beta[[3]], lf3.beta[[2]]) #Calculate f'(x)/f''(x)
 lf3.beta <- lf3(beta,mX,vY) 
 n <- n + 1 ##Continue to the next n
+
+p<-lf3.beta[[2]]
+q<-abs(lf3.beta[[2]])
+t<- max(abs(lf3.beta[[2]]))
+
+print(list(beta))
 }
-if (n == n.max) { ##If n=maximum value, output "newton failed to converge"
-cat('newton failed to converge\n')
-} else {
-return(beta)
-}
+#if (n == n.max) { ##If n=maximum value, output "newton failed to converge"
+#cat('newton failed to converge\n')
+#} else {
+return(list(beta))
+#}
 }
 
+##,p,q,t,n
+
 beta<-c(2,2)
+newton2(lf3,c(15,-0.1),x,y) 
 newton2(lf3,c(0,0),x,y) 
 
 for (x0 in seq(0,5, .01)) {
 for (y0 in seq(0,5, .01)) {
-cat(c(x0,y0), '--(Left=Start Point, Right=Extreme Value)--', newton2(lf3, c(x0,y0),x,y ))
+cat(c(x0,y0), '--(Left=Start Point, Right=Extreme Value)--', newton2(lf3, c(0,0),x,y ))
 }
 }
 ```
