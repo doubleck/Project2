@@ -482,5 +482,5 @@ detect_outliers(SVDD_obj=mal_solution, newdata=mydat2)
 
 ## Appendix with R code
 
-```{r all-code, ref.label=paste0('chunk', c(1:12, 14:20, 22:26)), echo=TRUE, eval=FALSE, tidy.opts=list(keep.blank.line=T)}
+```{r all-code, ref.label=paste0('Chunk', c(1:12, 14:20, 22:26)), echo=TRUE, eval=FALSE, tidy.opts=list(keep.blank.line=T)}
 ```
