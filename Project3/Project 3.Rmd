@@ -197,7 +197,7 @@ any(my_alphas < 0)
 ```
 
 We believe we have found a solution to the SVDD problem, so we wrap the commands shown above into a function that takes as input a data matrix `x`, a kernel function `k`, and a tolerance `tol` (to be passed to `ipop()`'s `margin` argument). The function returns an object of class `SVDD` (an S4 class that we have defined, but its definition is not shown).
-```{r Chunk13, echo=FALSE}
+```{r Chunk13, echo=FALSE, results='hide'}
 # define an S4 class "SVDD"
 SVDD <- setClass(
   # set the name of the formal S4 class being defined
@@ -484,3 +484,4 @@ detect_outliers(SVDD_obj=mal_solution, newdata=mydat2)
 
 ```{r all-code, ref.label=paste0('Chunk', c(1:12, 14:20, 22:26)), echo=TRUE, eval=FALSE, tidy.opts=list(keep.blank.line=T)}
 ```
+
