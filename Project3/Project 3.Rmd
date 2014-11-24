@@ -5,18 +5,18 @@ date: "`r format(Sys.Date(), '%A, %B %d, %Y')`"
 output: pdf_document
 ---
 
-```{r ChunkSettings, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+```{r Chunk1, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
 # Clear working environment
 rm(list=ls())
 library(ggplot2) # for plots
 library(kernlab)
 
 # Options for document compilation
-knitr::opts_chunk$set(warning=FALSE, message=FALSE, comment=NA, fig.width=4, fig.height=3)
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, comment=NA, fig.width=6, fig.height=5)
 ```
 
 ## Problem 1
-```{r}
+```{r Chunk2, echo=FALSE}
 ##Robert's Path
 mydat <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/training dataset.txt')
 mydat2 <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/data_project3.txt')
@@ -39,12 +39,12 @@ k(x_2, x_1) & k(x_2, x_2) & ... & k(x_2, x_n) \\
 k(x_n, x_1) & k(x_n, x_2) & ... & k(x_n, x_n) \end{array} \right]$$
 
 To do this, we must define a kernel function. This function essentially calculates the distance between each pair of data vectors. For simplicity, we begin by using the simplest distance, the euclidean distance. The euclidean distance between two data vectors is just their dot product. The `kernlab` package includes a function `vanilladot()` that when called, creates another function that will compute these dot products.
-```{r}
+```{r Chunk3}
 my_kernel <- vanilladot()
 ```
 
 We have now created a function `my_kernel()` that will calculate the linear distance between two data vectors for us. We check that this is equivalent to the dot product.
-```{r}
+```{r Chunk4}
 my_matrix <- as.matrix(mydat)
 my_kernel(my_matrix[1, ], my_matrix[2, ]) # dot prod using kernel function
 crossprod(my_matrix[1, ], my_matrix[2, ]) # dot prod using base R function
@@ -52,23 +52,23 @@ my_matrix[1, ] %*% my_matrix[2, ] # old school matrix multiplication operator
 ```
 
 It is useful to note here that our new function `my_kernel()` is a special kind of function - that is, it belongs to the class `vanillakernel`. 
-```{r}
+```{r Chunk5}
 class(my_kernel)
 ```
 
 Regular `R` users are familiar with classes like `matrix` and `function`, but what is the `vanillakernel` class? 
-```{r}
+```{r Chunk6}
 getClass('vanillakernel')
 ```
 The `getClass()` command reveals that objects of the class `vanillakernel` should have two slots, one named `.Data` that contains a function and one named `kpar` that contains a list. It also reveals that `vanillakernel` is an extension of the class `kernel`, which is itself an extension of the class `function`. More on this later.
 
 Now that we have defined an `R` function for applying our kernel function to a pair of data vectors, we can easily create a kernel matrix from our data matrix. There is a handy function in the `kernlab` package called `kernelMatrix()` that does exactly this. It requires as arguments `kernel`, the kernel function to be used, and `x`, the data matrix from which to compute the kernel matrix. We pass the function our kernel function `my_kernel()` and our data (`mydat`) as a matrix.
 
-```{r}
+```{r Chunk7}
 K <- kernelMatrix(kernel=my_kernel, x=as.matrix(mydat))
 ```
 The function returns a $n \times n$ ($66 \times 66$) matrix of class `kernelMatrix`.
-```{r}
+```{r Chunk8}
 dim(K)
 class(K)
 ```
@@ -169,7 +169,7 @@ Since $\alpha_i \ge 0, i=1, 2, ..., n$ and $\sum_{i} \alpha_i = 1$, no single $\
 
 Using the re-formulation of the problem, we pass the appropriate objects to the `ipop()` quadratic programming solver included in the `kernlab` package. this returns the vector of $\alpha$'s that minimize the stated problem $min(c'x+\dfrac{1}{2}x'Hx)$.
 
-```{r}
+```{r Chunk9}
 my_c <- (-1)*diag(K)
 my_H <- (2)*K
 my_A <- rep(1, nrow(my_matrix))
@@ -182,22 +182,22 @@ my_alphas <- my_solution@primal # use @ symbol to access s4 slot
 ```
 
 Note that the `margin` argument specifies how closely the solution obeys the constraints, so the $\alpha$ values found in the solution are not exact, but are accurate to at least six decimal places (since we set `margin` to 1E-6).
-```{r}
+```{r Chunk10}
 my_alphas <- round(my_alphas, abs(log10(1E-6)))
 ```
 
 We check to make sure our $\alpha_i$'s sum to one,
-```{r}
+```{r Chunk11}
 sum(my_alphas)
 ```
 
 and that none of them are less than zero.
-```{r}
+```{r Chunk12}
 any(my_alphas < 0)
 ```
 
 We believe we have found a solution to the SVDD problem, so we wrap the commands shown above into a function that takes as input a data matrix `x`, a kernel function `k`, and a tolerance `tol` (to be passed to `ipop()`'s `margin` argument). The function returns an object of class `SVDD` (an S4 class that we have defined, but its definition is not shown).
-```{r, echo=FALSE}
+```{r Chunk13, echo=FALSE}
 # define an S4 class "SVDD"
 SVDD <- setClass(
   # set the name of the formal S4 class being defined
@@ -231,9 +231,28 @@ SVDD <- setClass(
                     }
     }
   )
+
+# create a summary method for class SVDD
+setGeneric('summary', # reserve the method name "summary"
+           def=function(object){
+             standardGeneric('summary')
+             }
+           )
+
+setMethod( # define the method's behavior
+  f='summary',
+  signature='SVDD',
+  definition=function(object){
+    k <- class(object@kernel)
+    num_obs <- nrow(object@data)
+    num_svs <- nrow(object@support_vectors)
+    msg <- paste0('SVDD object using kernel function ', k, ':\n', num_svs, ' support vectors identified out of ', num_obs, ' observations.\n\n')
+    cat(msg)
+    return(object@support_vectors)
+    })
 ```
 
-```{r}
+```{r Chunk14}
 svdd <- function(x, k, tol=1E-6){
   K <- kernelMatrix(kernel=k, x=x)
   n <- nrow(x)
@@ -261,14 +280,17 @@ svdd <- function(x, k, tol=1E-6){
              fun_call=match.call()
              ))
   }
+```
 
+We test the function on our test data set and inspect it using a `summary` method, which we defined with the class definition for the class `SVDD`. (`SVDD` class definition and `summary` method definition are not shown for the sake of brevity.)
+```{r Chunk15}
 # supplying no value to tol implies it should use the default value tol = 1E-6
 euclidean_solution <- svdd(x=my_matrix, k=my_kernel)
-euclidean_solution
+summary(euclidean_solution)
 ```
 
 We examine our solution to see if it makes sense. The support vectors found should be the "edge cases" of the input data. Since the input data is defined in four dimensions, it is difficult to visualize all of its variability on a simple X-Y plot. To capture as much of the data's variability as possible in our plot, we plot the data along it's first two principal components and shade the support vectors. We abstract this plot away by defining a `plot` method for the `SVDD` class defined earlier. We invoke our `plot` method on our `SVDD` object `euclidean_solution` and the plot below is produced.
-```{r, echo=FALSE, results='hide'}
+```{r Chunk16, echo=FALSE, results='hide'}
 setMethod(
   f='plot',
   signature='SVDD',
@@ -280,13 +302,13 @@ setMethod(
     }
     SV <- ifelse(x@alphas > 0, 19, 1)
     legend_x <- quantile(rotated_data[, 'PC1'], 0.02)
-    legend_y <- quantile(rotated_data[, 'PC2'], 0.95)
+    legend_y <- quantile(rotated_data[, 'PC2'], 1)
     plot(rotated_data[, 'PC1'], rotated_data[, 'PC2'], type='p', pch=SV, xlab='PC 1', ylab='PC 2')
     legend(x=legend_x, y=legend_y, pch=c(19, 1), legend=c('Support Vectors', 'Non-support Vectors'))
     })
 ```
 
-```{r}
+```{r Chunk17}
 plot(euclidean_solution)
 ```
 
@@ -319,7 +341,7 @@ This is calculated in the same way as the distances of the support vectors from 
 
 We use these results to define a `predict` method for the class `SVDD`. The function takes the argument `type`, which if set to `"boolean"` will cause the method to return a vector of 0's and 1's, indicating a new data vector has been accepted or rejected, respectively. If the `type` argument is set to `"radii"`, the method returns a list object containing the radius of the SVDD spheroid and the $R^2$ values for each new data vector.
 
-```{r, results='hide'}
+```{r Chunk18, results='hide'}
 setMethod(
   f='predict',
   signature='SVDD',
@@ -339,7 +361,7 @@ setMethod(
     z2 <- (-2)*kernelMult(kernel=object@kernel, x=newdata, y=object@support_vectors, z=sv_alphas)
     z_rad <- z1+z2+term3
     if(type=='radii'){
-      return(list(mod_r2=r2, newdata_r2=z_rad))
+      return(list(mod_r2=r2, newdata_r2=c(z_rad)))
       }else{
         return(as.numeric(z_rad>r2))
         }
@@ -347,7 +369,7 @@ setMethod(
 ```
 
 We demonstrate the function below on the test data set.
-```{r, eval=FALSE}
+```{r Chunk19}
 predict(euclidean_solution, newdata=as.matrix(mydat2), type='boolean')
 predict(euclidean_solution, newdata=as.matrix(mydat2), type='radii')
 ```
@@ -355,7 +377,7 @@ predict(euclidean_solution, newdata=as.matrix(mydat2), type='radii')
 ### c. Write an `R` function for detecting potential outliers for a new set of observations, along with the upper threshold.
 
 This task is trivial once the `predict` method above is defined. We call the `predict` method to return the $R^2$ for each 
-```{r, eval=FALSE}
+```{r Chunk20}
 detect_outliers <- function(SVDD_obj, newdata, plot=T){
   x_mat <- as.matrix(newdata) # in case newdata is a data.frame
   pred <- predict(SVDD_obj, newdata=x_mat, type='radii')
@@ -384,8 +406,31 @@ by using the identity function for g.
 
 ### a. Write an `R` function to compute the Mahalanobis kernel distance $\pmb{d_g(x)}$
 
+We will do you one better - we first define a class `malhalanobis` and then define a function to define a Mahalanobis kernel function given a covariance matrix. It's a function that defines a function that is of class `malhalanobis` (class definition not shown).
 
-```{r}
+```{r Chunk21, echo=FALSE, results='hide'}
+setClass(
+  # name the class
+  'malhalanobis',
+  # define the slots
+  slots=c(.Data='function',
+          kpar='list'),
+  validity=function(object){
+    if(class(object@.Data)!='function'){
+      return('.Data should be of class function.')
+      }else if(class(object@kpar)!='list'){
+        return('kpar should be of class list.')
+        }else if(length(kpar)>1){
+          return('kpar should only have one element; covmat.')
+          }else{
+            return(TRUE)
+            }
+    },
+  contains='kernel'
+  )
+```
+
+```{r Chunk22}
 malhalanobis <- function(covmat){
   rval <- function(x, y = NULL) {
     if (!is(x, 'vector')) 
@@ -401,32 +446,41 @@ malhalanobis <- function(covmat){
       t(x)%*%solve(covmat)%*%y
       }
     }
-  return(new('kernel', .Data=rval, kpar=list(covmat=covmat)))
+  return(new('malhalanobis', .Data=rval, kpar=list(covmat=covmat)))
   }
+```
+We test the function by passing it the covariance matrix of our training data set and then an arbitrary point.
 
+```{r Chunk23}
 my_mal_kernel <- malhalanobis(covmat=cov(mydat))
-
+class(my_mal_kernel)
 my_mal_kernel(c(1, 1, 1, 1), c(1, 1, 1, 1)) # test case
 ```
 
 ### b. Write an `R` function to perform the Mahalanobis kernel SVDD.
 
-Already did that.
-```{r}
-mal_solution <-  SVDD(my_matrix, k=my_mal_kernel)
+The flexibility of our earlier code pays off here. The function `svdd()` defined earlier takes as an argument `kernel`, so we pass it our kernel function `my_mal_kernel` and our data set `mydat` and reuse the function.
+```{r Chunk24}
+mal_solution <-  svdd(as.matrix(mydat), k=my_mal_kernel)
+summary(mal_solution)
+plot(mal_solution)
 ```
 
 ### c. Write an `R` function to perform the prediction of a new observation using the Mahalanobis kernel SVDD.
 
+Again, our flexible code earlier pays off. We can reuse our `predict` method for any `SVDD` object.
+```{r Chunk25}
+predict(mal_solution, newdata=as.matrix(mydat2), type='boolean')
+```
+
 ### d. Write an `R` function for detecting potential outliers for a new set of observations, along with the upper threshold.
 
-
-
-
+We reuse our function from earlier again.
+```{r Chunk26}
+detect_outliers(SVDD_obj=mal_solution, newdata=mydat2)
+```
 
 ## Appendix with R code
 
-```{r all-code, ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE, tidy.opts=list(keep.blank.line=T)}
+```{r all-code, ref.label=paste0('chunk', c(1:12, 14:20, 22:26)), echo=TRUE, eval=FALSE, tidy.opts=list(keep.blank.line=T)}
 ```
-
-
