@@ -18,12 +18,12 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, comment=NA, fig.width=6, fig
 ## Problem 1
 ```{r Chunk2, echo=FALSE}
 ##Robert's Path
-mydat <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/training dataset.txt')
-mydat2 <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/data_project3.txt')
+#mydat <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/training dataset.txt')
+#mydat2 <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/data_project3.txt')
 
 ##Jung-Han's Path
-# mydat <- read.table("E:/Cloud Storage/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/training dataset.txt")
-# mydat2 <- read.table("E:/Cloud Storage/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/data_project3.txt")
+mydat <- read.table("F:/Dropbox New/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/training dataset.txt")
+mydat2 <- read.table("F:/Dropbox New/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/data_project3.txt")
 ```
 
 This problem is to get some codes to perform the support vector data description (SVDD)
@@ -482,6 +482,6 @@ detect_outliers(SVDD_obj=mal_solution, newdata=mydat2)
 
 ## Appendix with R code
 
-```{r all-code, ref.label=paste0('Chunk', c(1:12, 14:20, 22:26)), echo=TRUE, eval=FALSE, tidy.opts=list(keep.blank.line=T)}
+```{r all-code, ref.label=paste0('Chunk', c(3:12, 14:20, 22:26)), echo=TRUE, eval=FALSE, tidy.opts=list(keep.blank.line=T)}
 ```
 
