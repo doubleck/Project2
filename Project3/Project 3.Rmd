@@ -1,7 +1,7 @@
 ---
-title: "Project3"
+title: "STA6106 Statistical Computing Project 3"
 author: "Robert Norberg, Jung-Han Wang"
-date: "Monday, November 20, 2014"
+date: "`r format(Sys.Date(), '%A, %B %d, %Y')`"
 output: pdf_document
 ---
 
@@ -14,9 +14,8 @@ library(kernlab)
 # Options for document compilation
 knitr::opts_chunk$set(warning=FALSE, message=FALSE, comment=NA, fig.width=4, fig.height=3)
 ```
-## Project 3
 
-# Problem 1
+## Problem 1
 ```{r}
 ##Robert's Path
 mydat <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/training dataset.txt')
@@ -25,9 +24,6 @@ mydat2 <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2
 ##Jung-Han's Path
 # mydat <- read.table("E:/Cloud Storage/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/training dataset.txt")
 # mydat2 <- read.table("E:/Cloud Storage/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/data_project3.txt")
-my_matrix <- as.matrix(mydat)
-my_matrix2 <- as.matrix(mydat2)
-
 ```
 
 This problem is to get some codes to perform the support vector data description (SVDD)
@@ -49,17 +45,32 @@ my_kernel <- vanilladot()
 
 We have now created a function `my_kernel()` that will calculate the linear distance between two data vectors for us. We check that this is equivalent to the dot product.
 ```{r}
+my_matrix <- as.matrix(mydat)
 my_kernel(my_matrix[1, ], my_matrix[2, ]) # dot prod using kernel function
 crossprod(my_matrix[1, ], my_matrix[2, ]) # dot prod using base R function
 my_matrix[1, ] %*% my_matrix[2, ] # old school matrix multiplication operator
 ```
 
-Now that we have defined a function for applying our kernel function to a pair of data vectors, we can easily create a kernel matrix from our data matrix. There is a handy function in the `kernlab` package called `kernelMatrix()` that does exactly this. It requires as arguments `kernel`, the kernel function to be used, and `x`, the data matrix from which to compute the kernel matrix. We pass the function our kernel function `my_kernel()` and our data matrix `my_matrix`. The function returns a $nxn$ (66x66) matrix of class `kernelMatrix`.
+It is useful to note here that our new function `my_kernel()` is a special kind of function - that is, it belongs to the class `vanillakernel`. 
+```{r}
+class(my_kernel)
+```
+
+Regular `R` users are familiar with classes like `matrix` and `function`, but what is the `vanillakernel` class? 
+```{r}
+getClass('vanillakernel')
+```
+The `getClass()` command reveals that objects of the class `vanillakernel` should have two slots, one named `.Data` that contains a function and one named `kpar` that contains a list. It also reveals that `vanillakernel` is an extension of the class `kernel`, which is itself an extension of the class `function`. More on this later.
+
+Now that we have defined an `R` function for applying our kernel function to a pair of data vectors, we can easily create a kernel matrix from our data matrix. There is a handy function in the `kernlab` package called `kernelMatrix()` that does exactly this. It requires as arguments `kernel`, the kernel function to be used, and `x`, the data matrix from which to compute the kernel matrix. We pass the function our kernel function `my_kernel()` and our data (`mydat`) as a matrix.
 
 ```{r}
-H <- kernelMatrix(kernel=my_kernel, x=my_matrix)
-dim(H)
-class(H)
+K <- kernelMatrix(kernel=my_kernel, x=as.matrix(mydat))
+```
+The function returns a $n \times n$ ($66 \times 66$) matrix of class `kernelMatrix`.
+```{r}
+dim(K)
+class(K)
 ```
 
 The SVDD problem can be stated mathematically as
@@ -68,32 +79,37 @@ $$\underset{\alpha}{max}\sum_{i} \alpha_i \; k(x_i, x_i) - \sum_{i, j} \alpha_i 
 
 subject to $\alpha_i \ge 0$ and $\sum \alpha_i = 1$.
 
-The quadratic solver in the `kernlab` package solves quadratic programming problems in the form
+The quadratic solver in the `kernlab` package (a command called `ipop()`) solves quadratic programming problems in the form
 
 $$min(c'x+\dfrac{1}{2}x'Hx)$$
 
 subject to $b\le Ax \le b+r$ and $l \le x \le u$.
 
-To re-state the SVDD problem in the form required by the quadratic solver we set 
+To re-state the SVDD problem in the form required by the quadratic solver we first note that the SVDD problem is a miximization, while the solver computes a minimization. Thus, we re-state the SVDD problem as 
 
-$$x' = [\alpha_1, \alpha_2, ..., \alpha_n]$$
+$$\underset{\alpha}{min} -\sum_{i} \alpha_i \; k(x_i, x_i) + \sum_{i, j} \alpha_i \alpha_j \; k(x_i, x_j)$$,
+subject to the same constraints $\alpha_i \ge 0$ and $\sum \alpha_i = 1$.
 
-$$H = \left[ \begin{array}{cccc}
+Thus, if we set 
+
+$$x' = \left[ \alpha_1, \alpha_2, ..., \alpha_n \right]$$
+
+$$H = 2K = 2 \left[ \begin{array}{cccc}
 k(x_1, x_1) & k(x_1, x_2) & ... & k(x_1, x_n) \\
 k(x_2, x_1) & k(x_2, x_2) & ... & k(x_2, x_n) \\
 ... & ... & ... & ... \\
 k(x_n, x_1) & k(x_n, x_2) & ... & k(x_n, x_n) \end{array} \right]$$
 
-$$c' = [k(x_1, x_1), k(x_2, x_2), ..., k(x_n, x_n)] = diag(H)$$
+$$c' = (-1) \left[ k(x_1, x_1), k(x_2, x_2), ..., k(x_n, x_n) \right] = (-1)diag(K)$$
 
 then
 
-$$c'x + \dfrac{1}{2} x'Hx = [k(x_1, x_1), ..., k(x_n, x_n)] \left[ \begin{array}{c}
+$$c'x + \dfrac{1}{2} x'Hx = (-1) \left[ k(x_1, x_1), ..., k(x_n, x_n) \right] \left[ \begin{array}{c}
 \alpha_1 \\
 \alpha_2 \\
 ... \\
 \alpha_n \end{array} \right] 
-+ \dfrac{1}{2}(2) [\alpha_1, ..., \alpha_n] 
++ \dfrac{1}{2}(2) \left[ \alpha_1, ..., \alpha_n \right] 
 \left[ \begin{array}{cccc}
 k(x_1, x_1) & k(x_1, x_2) & ... & k(x_1, x_n) \\
 k(x_2, x_1) & k(x_2, x_2) & ... & k(x_2, x_n) \\
@@ -104,6 +120,10 @@ k(x_n, x_1) & k(x_n, x_2) & ... & k(x_n, x_n) \end{array} \right]
 \alpha_2 \\
 ... \\
 \alpha_n \end{array} \right]$$
+
+$$= (-1) \left( k(x_1, x_1) \alpha_1 + ... + k(x_n, x_n) \alpha_n \right) + left(\alpha_1 \alpha_1 k(x_1, x_1) + \alpha_1 \alpha_2 k(x_1, x_2) + ... + \alpha_n \alpha_n k(x_n, x_n)$$
+
+$$= -\sum_{i} \alpha_i \; k(x_i, x_i) + \sum_{i, j} \alpha_i \alpha_j \; k(x_i, x_j)$$
 
 To re-state the constraints of the SVDD problem in the form required by the quadratic solver, we set 
 
@@ -145,18 +165,25 @@ $$1 \le \sum \alpha_i \le 1$$
 
 and $l \le x \le u$ is equivalent to $0 \le \alpha_i \le \infty$.
 
+Since $\alpha_i \ge 0, i=1, 2, ..., n$ and $\sum_{i} \alpha_i = 1$, no single $\alpha_i$ may be greater than one, because then a negative valued $\alpha_i$ would be required to offset it to meet the condition $\sum_{i} \alpha_i = 1$, and negative valued $\alpha_i$'s are not allowed by the first condition. Because of the summation condition, $0 \le \alpha_i \le \infty$ is really equivalent to $0 \le \alpha_i \le 1$. Thus we can change $u$ from $\left[ \begin{array}{c} \infty \\ \infty \\ ... \\ \infty \end{array} \right]$ to $\left[ \begin{array}{c} 1 \\ 1 \\ ... \\ 1 \end{array} \right]$. This will save us considerable search time when running the quadratic solver.
+
 Using the re-formulation of the problem, we pass the appropriate objects to the `ipop()` quadratic programming solver included in the `kernlab` package. this returns the vector of $\alpha$'s that minimize the stated problem $min(c'x+\dfrac{1}{2}x'Hx)$.
 
 ```{r}
-my_c <- (-1)*diag(H)
-my_H <- (2)*H
+my_c <- (-1)*diag(K)
+my_H <- (2)*K
 my_A <- rep(1, nrow(my_matrix))
 my_b <- 1
 my_l <- rep(0, nrow(my_matrix))
 my_u <- rep(1, nrow(my_matrix))
 my_r <- 0
-my_solution <- ipop(c=my_c, H=my_H, A=my_A, b=my_b, l=my_l, u=my_u, r=my_r, maxiter=300, margin=0.001)
+my_solution <- ipop(c=my_c, H=my_H, A=my_A, b=my_b, l=my_l, u=my_u, r=my_r, maxiter=300, margin=1E-6)
 my_alphas <- my_solution@primal # use @ symbol to access s4 slot
+```
+
+Note that the `margin` argument specifies how closely the solution obeys the constraints, so the $\alpha$ values found in the solution are not exact, but are accurate to at least six decimal places (since we set `margin` to 1E-6).
+```{r}
+my_alphas <- round(my_alphas, abs(log10(1E-6)))
 ```
 
 We check to make sure our $\alpha_i$'s sum to one,
@@ -164,13 +191,54 @@ We check to make sure our $\alpha_i$'s sum to one,
 sum(my_alphas)
 ```
 
-We believe we have found a solution to the SVDD problem, so we wrap the commands shown above into a function that takes as input a data matrix `x` and a kernel function `k`.
+and that none of them are less than zero.
 ```{r}
-SVDD <- function(x, k, tol=1E-3){
-  H <- kernelMatrix(kernel=k, x=x)
+any(my_alphas < 0)
+```
+
+We believe we have found a solution to the SVDD problem, so we wrap the commands shown above into a function that takes as input a data matrix `x`, a kernel function `k`, and a tolerance `tol` (to be passed to `ipop()`'s `margin` argument). The function returns an object of class `SVDD` (an S4 class that we have defined, but its definition is not shown).
+```{r, echo=FALSE}
+# define an S4 class "SVDD"
+SVDD <- setClass(
+  # set the name of the formal S4 class being defined
+  'SVDD',
+  # Define the slots and their types
+  slots=c(
+    data='matrix',
+    alphas='numeric',
+    support_vectors='matrix',
+    kernel='kernel',
+    tolerance='numeric',
+    fun_call='call'),
+  # A function to see if the object is a valid SVDD object
+  validity=function(object){
+    if(class(object@data)!='matrix'){
+      return('data should be of class matrix.')
+      }else if(class(object@alphas)!='numeric'){
+        return('alphas should be of class numeric.')
+        }else if(any(object@alphas < 0)){
+          return('alphas should all be non-negative.')
+          }else if(class(object@support_vectors)!='matrix'){
+            return('support_vectors should be of class matrix.')
+            }else if(!inherits(object@kernel, 'kernel')){
+              return('kernel should be a subclass of the kernel class.')
+              }else if(class(object@tolerance)!='numeric' || object@tolerance > 1){
+                return('tolerance should be a numeric value less than one.')
+                }else if(class(object@fun_call)!='call'){
+                  return('call should be of class function')
+                  }else{
+                    return(TRUE)
+                    }
+    }
+  )
+```
+
+```{r}
+svdd <- function(x, k, tol=1E-6){
+  K <- kernelMatrix(kernel=k, x=x)
   n <- nrow(x)
-  solution <- ipop(c=(-1)*diag(H), 
-                   H=2*H, 
+  solution <- ipop(c=(-1)*diag(K), 
+                   H=2*K, 
                    A=rep(1, n), 
                    b=1, 
                    l=rep(0, n), 
@@ -180,166 +248,156 @@ SVDD <- function(x, k, tol=1E-3){
                    margin=tol)
   
   alphas <- solution@primal
+  alphas <- round(alphas, abs(log10(tol))) # round based on tol
   
-  # catch errors
-  if(signif(sum(alphas), 7) != 1){
-    stop("An error has occurred! The soultion values do not sum to one.")
-    }
-##  if(any(signif(alphas, 7) < 0)){
-##    stop("An error has occurred! The solution values include at least one negative value, which is not allowed.")
-##    }
-
-  svs <- x[round(alphas, abs(log10(tol)))> 0, ]
-  return(list(alphas=alphas, support_vectors=svs, kernel=k, tolerance=tol))
+  svs <- x[alphas > 0, ] # these are the support vectors
+  
+  return(new('SVDD',
+             data=x,
+             alphas=alphas, 
+             support_vectors=svs, 
+             kernel=k, 
+             tolerance=tol, 
+             fun_call=match.call()
+             ))
   }
 
-test_solution <- SVDD(my_matrix, my_kernel)
+# supplying no value to tol implies it should use the default value tol = 1E-6
+euclidean_solution <- svdd(x=my_matrix, k=my_kernel)
+euclidean_solution
 ```
 
-Lets check our solution to see if it makes sense.
-```{r}
-my_pcs <- prcomp(my_matrix)
-pc_data <- predict(my_pcs, my_matrix)
-pc_data <- as.data.frame(pc_data)
-pc_data$SV <- with(test_solution, round(alphas, abs(log10(tol))) > 0)
+We examine our solution to see if it makes sense. The support vectors found should be the "edge cases" of the input data. Since the input data is defined in four dimensions, it is difficult to visualize all of its variability on a simple X-Y plot. To capture as much of the data's variability as possible in our plot, we plot the data along it's first two principal components and shade the support vectors. We abstract this plot away by defining a `plot` method for the `SVDD` class defined earlier. We invoke our `plot` method on our `SVDD` object `euclidean_solution` and the plot below is produced.
+```{r, echo=FALSE, results='hide'}
+setMethod(
+  f='plot',
+  signature='SVDD',
+  definition=function(x, y){
+    if(class(x@kernel)=='vanillakernel'){
+      rotated_data <- prcomp(x@data, center=F, scale=F)$x
+    }else{
+     rotated_data <- prcomp(x@data, center=T, scale=T)$x 
+    }
+    SV <- ifelse(x@alphas > 0, 19, 1)
+    legend_x <- quantile(rotated_data[, 'PC1'], 0.02)
+    legend_y <- quantile(rotated_data[, 'PC2'], 0.95)
+    plot(rotated_data[, 'PC1'], rotated_data[, 'PC2'], type='p', pch=SV, xlab='PC 1', ylab='PC 2')
+    legend(x=legend_x, y=legend_y, pch=c(19, 1), legend=c('Support Vectors', 'Non-support Vectors'))
+    })
+```
 
-ggplot(pc_data, aes(x=PC4, y=PC3, color=SV))+
-  geom_point(size=3)+
-  theme_bw(base_size=16)
+```{r}
+plot(euclidean_solution)
 ```
 
 ### b. Write an `R` function to perform the prediction of a new observation using SVDD.
 
-When $x_s$ is Support Vector when $\alpha_s > 0$
+The distance from a data vector to the center of the SVDD spheroid in the kernel space is given by
+$$R^2_{x^\ast}=k(x^\ast, x^\ast)-2 \sum_{i=1}^n \alpha_i k(x^\ast, x_j)+\sum_{i, j=1}^{n} \alpha_i \alpha_j k(x_i, x_j)$$
 
-Followed by, we want to select support vector $x_S$ based on $\alpha_s$.
+For the purpose of predicting outliers, we are interested in the radius of the SVDD spheroid in the kernel space, that is, the distance from the center of the spheroid to the very edge of the spheroid (in the kernel space). Any new observation farther away than this from the spheroid center would be identified as an outlier.
 
-Therefore, we combined $\alpha$ with original dataset, then make the selection.
-```{r}
-test_solution$support_vectors
-```
+If we identify just the support vectors of a data set and find their distance from the spheroid center, we can determine the radius of the spheroid and use this to score new observations. We break the equation above into three terms to be calculated.
 
-The prediction of new observation can be calculated by solving R.
-The function of R can be written as:
-$$R^2=(x'_s\cdot x_s)-2\sum_{i=1}^N{\alpha_i(x'_s\cdot x_i)}+\sum_{i,j=1}^N{\alpha_i\alpha_j(x'_i\cdot x_j)}$$
+$$Term \: 1=k(x^\ast, x^\ast)$$
 
-```{r, eval=FALSE}
+$$Term \: 2=(-2)\sum_{i=1}^n \alpha_i k(x^\ast, x_j)$$
 
-find_term_3 <- function(SVDD_obj){
-  all_svs <- SVDD_obj$support_vectors
-  sv_alphas <- with(SVDD_obj, alphas[round(alphas, abs(log10(tol)))>0])
-  k <- SVDD_obj$kernel
-  term_3 <- 0
-  for (i in 1:nrow(all_svs)){
-    for (j in 1:nrow(all_svs)){
-      tmp3 <- sv_alphas[i]*sv_alphas[j]*k(all_svs[i,], all_svs[j,])
-      term_3 <- term_3+tmp3
-      }
-    }
-  return(term_3)
-}
+$$Term \: 3=\sum_{i, j=1}^{n} \alpha_i \alpha_j k(x_i, x_j)$$
 
-find_r <- function(SVDD_obj){
-  all_svs <- SVDD_obj$support_vectors
-  sv_alphas <- with(SVDD_obj, alphas[round(alphas, abs(log10(tol)))>0])
-  k <- SVDD_obj$kernel
-  
-  # pre-allocate a vector for each radius to be calculated
-  r2s <- vector(length=nrow(all_svs), mode='numeric')
-  
-  # calculate term 3 just once for efficiency
-  term_3 <- find_term_3(SVDD_obj)
-  
-  # term 1 and term 2 must be computed for each support vector separately
-  for(i in 1:nrow(all_svs)){
-    term_1 <- k(all_svs[i, ], all_svs[i, ])
+Term 1 is easily calculated using the kernel function passed to the `svdd()` function. Term 2 includes the $\alpha_i$ values, many of which are zero, so its computation can be simplified. Only the support vectors have a non-zero $\alpha_i$, so we can reduce $(-2)\sum_{i=1}^n \alpha_i k(x^\ast, x_j)$ to $(-2)\sum_{i \in s} \alpha_i k(x^\ast, x_j)$, where $s$ is the set of support vectors only. Term 3 can similarly be reduced. Also, note that while terms 1 and 2 differ for each data vector, term 3 is the same for every vector in a data set, so it only needs to be calculated once. For a data set with many support vectors, this may save considerable time.
+
+There are two functions in the `kernlab` package that aid in the calculation of terms 1 and 2. The function `kernelMult()` calculates $\sum_{i=1}^n z_i k(x_i, x_j)$, so term 2 can be calculated by `(-2)*kernelMult(kernel, support_vectors, alphas)`. The function `kernelPol()` computes $z_i z_j k(x_i,x_j)$, so term 3 can be calculated by `sum(kernelPol(kernel, support_vectors, sv_alphas))`. 
+
+Once $R^2$ is found for each support vector, the set of these may be averaged to find a suitable estimate for the radius of the SVDD spheroid. The calculated $R^2$ should be the same for all support vectors, but imprecision in the quadratic solver may cause this not to be the case.
+
+Once the radius of the SVDD spheroid is obtained, a new observation may be scored. A new data vector $z$ is accepted when its distance from the center of the spheroid is less than the radius of the spheroid, that is
+
+$$k(z, z)-2 \sum_{i=1}^n \alpha_i k(z, x_j)+\sum_{i, j=1}^{n} \alpha_i \alpha_j k(x_i, x_j)$$
+
+This is calculated in the same way as the distances of the support vectors from the center. Note that "term 3" appears here as well and may be reused again, saving even more computation.
+
+We use these results to define a `predict` method for the class `SVDD`. The function takes the argument `type`, which if set to `"boolean"` will cause the method to return a vector of 0's and 1's, indicating a new data vector has been accepted or rejected, respectively. If the `type` argument is set to `"radii"`, the method returns a list object containing the radius of the SVDD spheroid and the $R^2$ values for each new data vector.
+
+```{r, results='hide'}
+setMethod(
+  f='predict',
+  signature='SVDD',
+  definition=function(object, newdata, type=c('radii', 'boolean')){
+    # isolate non-zero alpha values (corresponding to support vectors)
+    sv_alphas <- object@alphas[object@alphas > 0]
+    # calculate k(x_s, x_s) for each support vector
+    term1 <- apply(object@support_vectors, 1, function(x) object@kernel(x, x))
+    # kernelMult computes (-2) sum(alpha_i k(x_s, x_i)) for each support vector x_s
+    term2 <- (-2)*kernelMult(kernel=object@kernel, x=object@support_vectors, z=sv_alphas)
+    # kernelPol computes z_i z_j k(x_i, x_j)
+    term3 <- sum(kernelPol(kernel=object@kernel, x=object@support_vectors, z=sv_alphas))
+    radii <- term1+term2+term3 # term1 and term2 vectors, term3 scalar
+    r2 <- mean(radii)
     
-    term_2 <- 0
-    for (j in 1:nrow(all_svs)){
-      tmp2 <- -2*sv_alphas[j]*k(all_svs[i, ], all_svs[j, ])
-      term_2 <- term_2+tmp2
-      }
-    r2s[i] <- term_1+term_2+term_3
-    }
-  
-  # these r2s should all be similar
-  if(var(r2s)>0.1){
-    warning('The radii calculated have a variance larger than 0.1.')
-  }
-  return(mean(r2s))
-  }
-
-r.sqr <- find_r(test_solution)
-
+    z1 <- apply(newdata, 1, function(x) object@kernel(x, x))
+    z2 <- (-2)*kernelMult(kernel=object@kernel, x=newdata, y=object@support_vectors, z=sv_alphas)
+    z_rad <- z1+z2+term3
+    if(type=='radii'){
+      return(list(mod_r2=r2, newdata_r2=z_rad))
+      }else{
+        return(as.numeric(z_rad>r2))
+        }
+    })
 ```
 
-
-A test sample z is accepted when $\le R^2$
+We demonstrate the function below on the test data set.
 ```{r, eval=FALSE}
-z<-c(1,1,1,1)
-
-predict_SVDD <- function(z, SVDD_obj){
-  all_svs <- SVDD_obj$support_vectors
-  sv_alphas <- with(SVDD_obj, alphas[round(alphas, abs(log10(tol)))>0])
-  k <- SVDD_obj$kernel
-  
-  z1 <- k(z, z)
-  z2 <- 0
-  for (j in 1:length(sv_alphas)){
-    tmp2 <- -2*sv_alphas[j]*k(z, z)
-    z2 <- z2+tmp2
-    }
-  z3<-find_term_3(SVDD_obj)
-  z_rad <- z1+z2+z3 # distance of point z from center
-  return(z_rad)
-  }
-
-predict_SVDD(z=z, SVDD_obj=test_solution)
+predict(euclidean_solution, newdata=as.matrix(mydat2), type='boolean')
+predict(euclidean_solution, newdata=as.matrix(mydat2), type='radii')
 ```
-
 
 ### c. Write an `R` function for detecting potential outliers for a new set of observations, along with the upper threshold.
-```{r}
+
+This task is trivial once the `predict` method above is defined. We call the `predict` method to return the $R^2$ for each 
+```{r, eval=FALSE}
 detect_outliers <- function(SVDD_obj, newdata, plot=T){
-  x_mat <- as.matrix(newdata)
-  rad <- apply(x_mat, 1, predict_SVDD, SVDD_obj=SVDD_obj)
-  SVDD_r2 <- find_r(SVDD_obj=SVDD_obj)
-  outlier_ind <- rad>SVDD_r2
+  x_mat <- as.matrix(newdata) # in case newdata is a data.frame
+  pred <- predict(SVDD_obj, newdata=x_mat, type='radii')
+  rad <- pred$newdata_r2
+  r2 <- pred$mod_r2
+  outlier_ind <- rad>r2
   num_outliers <- sum(outlier_ind)
 
   if(plot==T){
-    plotdat <- as.data.frame(cbind(x_mat, rad))
     plot(rad, type='b')
-    abline(h=SVDD_r2, col='red')
+    abline(h=r2, col='red')
   }
   
-  msg <- paste(num_outliers, 'out of', nrow(x_mat), 'detected')
-  cat(msg, '\n')
-  return(outlier_ind)
+  msg <- paste(num_outliers, 'outliers out of', nrow(x_mat), 'observations detected. \n')
+  cat(msg)
+  return('outliers'=which(outlier_ind))
 }
 
-detect_outliers(SVDD_obj=test_solution, newdata=mydat2)
+detect_outliers(SVDD_obj=euclidean_solution, newdata=mydat2)
 ```
 
-# Problem 2
+## Problem 2
 
 The goal of problem 2 is to perform the support vector data description (SVDD) using the Mahalanobis kernel function. We will simplify the problem
 by using the identity function for g.
 
-a. Write an `R` function to compute the Mahalanobis kernel distance $\pmb{d_g(x)}$
+### a. Write an `R` function to compute the Mahalanobis kernel distance $\pmb{d_g(x)}$
+
+
 ```{r}
 malhalanobis <- function(covmat){
   rval <- function(x, y = NULL) {
-    if (!is(x, "vector")) 
-      stop("x must be a vector")
-    if (!is(y, "vector") && !is.null(y)) 
-      stop("y must be a vector")
-    if (is(x, "vector") && is.null(y)) {
+    if (!is(x, 'vector')) 
+      stop('x must be a vector')
+    if (!is(y, 'vector') && !is.null(y)) 
+      stop('y must be a vector')
+    if (is(x, 'vector') && is.null(y)) {
       t(x)%*%solve(covmat)%*%x
       }
-    if (is(x, "vector") && is(y, "vector")) {
+    if (is(x, 'vector') && is(y, 'vector')) {
       if (!length(x) == length(y)) 
-        stop("number of dimension must be the same on both data points")
+        stop('number of dimension must be the same on both data points')
       t(x)%*%solve(covmat)%*%y
       }
     }
@@ -363,9 +421,7 @@ mal_solution <-  SVDD(my_matrix, k=my_mal_kernel)
 ### d. Write an `R` function for detecting potential outliers for a new set of observations, along with the upper threshold.
 
 
-```{r}
 
-```
 
 
 ## Appendix with R code
