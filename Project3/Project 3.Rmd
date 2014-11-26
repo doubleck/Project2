@@ -18,17 +18,17 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, comment=NA, fig.width=6, fig
 ## Problem 1
 ```{r Chunk2, echo=FALSE}
 ##Robert's Path
-#mydat <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/training dataset.txt')
-#mydat2 <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/data_project3.txt')
+mydat <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/training dataset.txt')
+mydat2 <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/data_project3.txt')
 
 ##Jung-Han's Path
-mydat <- read.table("F:/Dropbox New/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/training dataset.txt")
-mydat2 <- read.table("F:/Dropbox New/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/data_project3.txt")
+# mydat <- read.table("F:/Dropbox New/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/training dataset.txt")
+# mydat2 <- read.table("F:/Dropbox New/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/data_project3.txt")
 ```
 
 This problem is to get some codes to perform the support vector data description (SVDD)
 
-### a. Write an _R_ function to perform the SVDD.
+### a. Write an `R` function to perform the SVDD.
 
 First, we want to compute the kernel matrix
 
@@ -77,7 +77,7 @@ The SVDD problem can be stated mathematically as
 
 $$\underset{\alpha}{max}\sum_{i} \alpha_i \; k(x_i, x_i) - \sum_{i, j} \alpha_i \alpha_j \; k(x_i, x_j)$$
 
-subject to $\alpha_i \ge 0$ and $\sum \alpha_i = 1$.
+subject to $0 \le \alpha_i \le C$ and $\sum \alpha_i = 1$.
 
 The quadratic solver in the `kernlab` package (a command called `ipop()`) solves quadratic programming problems in the form
 
@@ -88,7 +88,7 @@ subject to $b\le Ax \le b+r$ and $l \le x \le u$.
 To re-state the SVDD problem in the form required by the quadratic solver we first note that the SVDD problem is a miximization, while the solver computes a minimization. Thus, we re-state the SVDD problem as 
 
 $$\underset{\alpha}{min} -\sum_{i} \alpha_i \; k(x_i, x_i) + \sum_{i, j} \alpha_i \alpha_j \; k(x_i, x_j)$$,
-subject to the same constraints $\alpha_i \ge 0$ and $\sum \alpha_i = 1$.
+subject to the same constraints $0 \le \alpha_i \le C$ and $\sum \alpha_i = 1$.
 
 Thus, if we set 
 
@@ -144,10 +144,10 @@ x = \left[ \begin{array}{c}
 ... \\
 \alpha_n \end{array} \right], 
 u = \left[ \begin{array}{c}
-\infty \\
-\infty \\
+C \\
+C \\
 ... \\
-\infty \end{array} \right]$$
+C \end{array} \right]$$
 
 then $b\le Ax \le b+r$ is equivalent to 
 
@@ -163,19 +163,18 @@ or
 
 $$1 \le \sum \alpha_i \le 1$$
 
-and $l \le x \le u$ is equivalent to $0 \le \alpha_i \le \infty$.
+and $l \le x \le u$ is equivalent to $0 \le \alpha_i \le C$.
 
-Since $\alpha_i \ge 0, i=1, 2, ..., n$ and $\sum_{i} \alpha_i = 1$, no single $\alpha_i$ may be greater than one, because then a negative valued $\alpha_i$ would be required to offset it to meet the condition $\sum_{i} \alpha_i = 1$, and negative valued $\alpha_i$'s are not allowed by the first condition. Because of the summation condition, $0 \le \alpha_i \le \infty$ is really equivalent to $0 \le \alpha_i \le 1$. Thus we can change $u$ from $\left[ \begin{array}{c} \infty \\ \infty \\ ... \\ \infty \end{array} \right]$ to $\left[ \begin{array}{c} 1 \\ 1 \\ ... \\ 1 \end{array} \right]$. This will save us considerable search time when running the quadratic solver.
-
-Using the re-formulation of the problem, we pass the appropriate objects to the `ipop()` quadratic programming solver included in the `kernlab` package. this returns the vector of $\alpha$'s that minimize the stated problem $min(c'x+\dfrac{1}{2}x'Hx)$.
+Using the re-formulation of the problem (and $C=1$), we pass the appropriate objects to the `ipop()` quadratic programming solver included in the `kernlab` package. this returns the vector of $\alpha$'s that minimize the stated problem $min(c'x+\dfrac{1}{2}x'Hx)$.
 
 ```{r Chunk9}
+C <- 1
 my_c <- (-1)*diag(K)
 my_H <- (2)*K
 my_A <- rep(1, nrow(my_matrix))
 my_b <- 1
 my_l <- rep(0, nrow(my_matrix))
-my_u <- rep(1, nrow(my_matrix))
+my_u <- rep(C, nrow(my_matrix))
 my_r <- 0
 my_solution <- ipop(c=my_c, H=my_H, A=my_A, b=my_b, l=my_l, u=my_u, r=my_r, maxiter=300, margin=1E-6)
 my_alphas <- my_solution@primal # use @ symbol to access s4 slot
@@ -205,6 +204,7 @@ SVDD <- setClass(
   # Define the slots and their types
   slots=c(
     data='matrix',
+    cost='numeric',
     alphas='numeric',
     support_vectors='matrix',
     kernel='kernel',
@@ -214,21 +214,23 @@ SVDD <- setClass(
   validity=function(object){
     if(class(object@data)!='matrix'){
       return('data should be of class matrix.')
-      }else if(class(object@alphas)!='numeric'){
-        return('alphas should be of class numeric.')
-        }else if(any(object@alphas < 0)){
-          return('alphas should all be non-negative.')
-          }else if(class(object@support_vectors)!='matrix'){
-            return('support_vectors should be of class matrix.')
-            }else if(!inherits(object@kernel, 'kernel')){
-              return('kernel should be a subclass of the kernel class.')
-              }else if(class(object@tolerance)!='numeric' || object@tolerance > 1){
-                return('tolerance should be a numeric value less than one.')
-                }else if(class(object@fun_call)!='call'){
-                  return('call should be of class function')
-                  }else{
-                    return(TRUE)
-                    }
+      }else if(class(object@cost)!='numeric' || object@cost<0){
+        return('cost must be numeric and greater than 0.')
+        }else if(class(object@alphas)!='numeric'){
+          return('alphas should be of class numeric.')
+          }else if(any(object@alphas < 0)){
+            return('alphas should all be non-negative.')
+            }else if(class(object@support_vectors)!='matrix'){
+              return('support_vectors should be of class matrix.')
+              }else if(!inherits(object@kernel, 'kernel')){
+                return('kernel should be a subclass of the kernel class.')
+                }else if(class(object@tolerance)!='numeric' || object@tolerance > 1){
+                  return('tolerance should be a numeric value less than one.')
+                  }else if(class(object@fun_call)!='call'){
+                    return('call should be of class function')
+                    }else{
+                      return(TRUE)
+                      }
     }
   )
 
@@ -246,14 +248,15 @@ setMethod( # define the method's behavior
     k <- class(object@kernel)
     num_obs <- nrow(object@data)
     num_svs <- nrow(object@support_vectors)
-    msg <- paste0('SVDD object using kernel function ', k, ':\n', num_svs, ' support vectors identified out of ', num_obs, ' observations.\n\n')
+    cost <- object@cost
+    msg <- paste0('SVDD object using kernel function ', k, ' and cost = ', cost, ':\n', num_svs, ' support vectors identified out of ', num_obs, ' observations.\n\n')
     cat(msg)
     return(object@support_vectors)
     })
 ```
 
 ```{r Chunk14}
-svdd <- function(x, k, tol=1E-6){
+svdd <- function(x, k, cost, tol=1E-6){
   K <- kernelMatrix(kernel=k, x=x)
   n <- nrow(x)
   solution <- ipop(c=(-1)*diag(K), 
@@ -261,7 +264,7 @@ svdd <- function(x, k, tol=1E-6){
                    A=rep(1, n), 
                    b=1, 
                    l=rep(0, n), 
-                   u=rep(1, n), 
+                   u=rep(cost, n), 
                    r=0, 
                    maxiter=300, 
                    margin=tol)
@@ -273,6 +276,7 @@ svdd <- function(x, k, tol=1E-6){
   
   return(new('SVDD',
              data=x,
+             cost=as.numeric(cost),
              alphas=alphas, 
              support_vectors=svs, 
              kernel=k, 
@@ -285,7 +289,7 @@ svdd <- function(x, k, tol=1E-6){
 We test the function on our test data set and inspect it using a `summary` method, which we defined with the class definition for the class `SVDD`. (`SVDD` class definition and `summary` method definition are not shown for the sake of brevity.)
 ```{r Chunk15}
 # supplying no value to tol implies it should use the default value tol = 1E-6
-euclidean_solution <- svdd(x=my_matrix, k=my_kernel)
+euclidean_solution <- svdd(x=my_matrix, k=my_kernel, cost=5)
 summary(euclidean_solution)
 ```
 
@@ -305,12 +309,23 @@ setMethod(
     legend_y <- quantile(rotated_data[, 'PC2'], 1)
     plot(rotated_data[, 'PC1'], rotated_data[, 'PC2'], type='p', pch=SV, xlab='PC 1', ylab='PC 2')
     legend(x=legend_x, y=legend_y, pch=c(19, 1), legend=c('Support Vectors', 'Non-support Vectors'))
+    title(paste('Cost =', x@cost))
     })
 ```
 
 ```{r Chunk17}
 plot(euclidean_solution)
 ```
+
+```{r, echo=FALSE, eval=FALSE}
+# just for fun
+library(manipulate)
+manipulate(
+  plot(svdd(x=my_matrix, k=my_kernel, cost=a)),
+  a=slider(0.05, 2)
+  )
+```
+
 
 ### b. Write an `R` function to perform the prediction of a new observation using SVDD.
 
@@ -461,7 +476,7 @@ my_mal_kernel(c(1, 1, 1, 1), c(1, 1, 1, 1)) # test case
 
 The flexibility of our earlier code pays off here. The function `svdd()` defined earlier takes as an argument `kernel`, so we pass it our kernel function `my_mal_kernel` and our data set `mydat` and reuse the function.
 ```{r Chunk24}
-mal_solution <-  svdd(as.matrix(mydat), k=my_mal_kernel)
+mal_solution <-  svdd(as.matrix(mydat), k=my_mal_kernel, cost=1)
 summary(mal_solution)
 plot(mal_solution)
 ```
