@@ -42,7 +42,8 @@ k(x_2, x_1) & k(x_2, x_2) & ... & k(x_2, x_n) \\
 ... & ... & ... & ... \\
 k(x_n, x_1) & k(x_n, x_2) & ... & k(x_n, x_n) \end{array} \right]$$
 
-To do this, we must define a kernel function. This function essentially calculates the distance between each pair of data vectors. For simplicity, we begin by using the simplest distance, the euclidean distance. The euclidean distance between two data vectors is just their dot product. The `kernlab` package includes a function `rbf()` that when called, creates another function that will compute these dot products.
+To do this, we must define a kernel function. This function essentially calculates the distance between each pair of data vectors.The `kernlab` package includes a function `rbfdot()` that when called, creates another function that will compute these Gaussian distance.
+
 ```{r Chunk3}
 my_kernel <- rbfdot(sigma=0.1)
 ```
