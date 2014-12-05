@@ -18,12 +18,16 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, comment=NA, fig.width=6, fig
 ## Problem 1
 ```{r Chunk2, echo=FALSE}
 ##Robert's Path
-mydat <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/training dataset.txt')
-mydat2 <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/data_project3.txt')
+#mydat <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/training dataset.txt')
+#mydat2 <- read.table('/home/robert/cloud/Classes/STA6106 Stat Computing/Project2/Project3/data_project3.txt')
 
 ##Jung-Han's Path
-# mydat <- read.table("F:/Dropbox New/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/training dataset.txt")
-# mydat2 <- read.table("F:/Dropbox New/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/data_project3.txt")
+mydat <- read.table("F:/Dropbox New/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/training dataset.txt")
+mydat2 <- read.table("F:/Dropbox New/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/data_project3.txt")
+
+##Home Path
+#mydat <- read.table("E:/Cloud Storage/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/training dataset.txt")
+#mydat2 <- read.table("E:/Cloud Storage/Dropbox/Life long study/Ph.D/Lecture/2014 Fall/Statistical Computing/Project 2/Project2/Project3/data_project3.txt")
 ```
 
 This problem is to get some codes to perform the support vector data description (SVDD)
@@ -38,29 +42,31 @@ k(x_2, x_1) & k(x_2, x_2) & ... & k(x_2, x_n) \\
 ... & ... & ... & ... \\
 k(x_n, x_1) & k(x_n, x_2) & ... & k(x_n, x_n) \end{array} \right]$$
 
-To do this, we must define a kernel function. This function essentially calculates the distance between each pair of data vectors. For simplicity, we begin by using the simplest distance, the euclidean distance. The euclidean distance between two data vectors is just their dot product. The `kernlab` package includes a function `vanilladot()` that when called, creates another function that will compute these dot products.
+To do this, we must define a kernel function. This function essentially calculates the distance between each pair of data vectors. For simplicity, we begin by using the simplest distance, the euclidean distance. The euclidean distance between two data vectors is just their dot product. The `kernlab` package includes a function `rbf()` that when called, creates another function that will compute these dot products.
 ```{r Chunk3}
-my_kernel <- vanilladot()
+my_kernel <- rbfdot(sigma=0.1)
 ```
 
-We have now created a function `my_kernel()` that will calculate the linear distance between two data vectors for us. We check that this is equivalent to the dot product.
+We have now created a function `my_kernel()` that will calculate the linear distance between two data vectors for us. We check that this is equivalent to the gaussian function. RBF kernel distance equals to $$e^{(\sigma(|x-x'|)^2)}$$
 ```{r Chunk4}
 my_matrix <- as.matrix(mydat)
-my_kernel(my_matrix[1, ], my_matrix[2, ]) # dot prod using kernel function
-crossprod(my_matrix[1, ], my_matrix[2, ]) # dot prod using base R function
-my_matrix[1, ] %*% my_matrix[2, ] # old school matrix multiplication operator
+my_kernel(my_matrix[1, ], my_matrix[2, ]) # Distance using my_kernel function
+sigma=0.1 #Set sigma value
+##Check it through Gaussian function
+exp(sigma * (2 * crossprod(my_matrix[1, ], my_matrix[2, ]) -
+               crossprod(my_matrix[1, ]) - crossprod(my_matrix[2, ])))
 ```
 
-It is useful to note here that our new function `my_kernel()` is a special kind of function - that is, it belongs to the class `vanillakernel`. 
+It is useful to note here that our new function `my_kernel()` is a special kind of function - that is, it belongs to the class `rbfkernel`. 
 ```{r Chunk5}
 class(my_kernel)
 ```
 
-Regular `R` users are familiar with classes like `matrix` and `function`, but what is the `vanillakernel` class? 
+Regular `R` users are familiar with classes like `matrix` and `function`, but what is the `rbfkernel` class? 
 ```{r Chunk6}
-getClass('vanillakernel')
+getClass('rbfkernel')
 ```
-The `getClass()` command reveals that objects of the class `vanillakernel` should have two slots, one named `.Data` that contains a function and one named `kpar` that contains a list. It also reveals that `vanillakernel` is an extension of the class `kernel`, which is itself an extension of the class `function`. More on this later.
+The `getClass()` command reveals that objects of the class `rbfkernel` should have two slots, one named `.Data` that contains a function and one named `kpar` that contains a list. It also reveals that `rbfkernel` is an extension of the class `kernel`, which is itself an extension of the class `function`. More on this later.
 
 Now that we have defined an `R` function for applying our kernel function to a pair of data vectors, we can easily create a kernel matrix from our data matrix. There is a handy function in the `kernlab` package called `kernelMatrix()` that does exactly this. It requires as arguments `kernel`, the kernel function to be used, and `x`, the data matrix from which to compute the kernel matrix. We pass the function our kernel function `my_kernel()` and our data (`mydat`) as a matrix.
 
@@ -299,7 +305,7 @@ setMethod(
   f='plot',
   signature='SVDD',
   definition=function(x, y){
-    if(class(x@kernel)=='vanillakernel'){
+    if(class(x@kernel)=='rbfkernel'){
       rotated_data <- prcomp(x@data, center=F, scale=F)$x
     }else{
      rotated_data <- prcomp(x@data, center=T, scale=T)$x 
